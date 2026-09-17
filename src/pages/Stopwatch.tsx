@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { runnerFullName, useStore } from '../store';
-import type { Finish, Id, StopwatchState, Team } from '../types';
+import type { Checkpoint, Finish, Id, StopwatchState, Team } from '../types';
 import { newId } from '../lib/id';
 import { DISTANCE_PRESETS, distanceLabel, formatDate, formatMs, todayIso } from '../lib/time';
 import { emptySw, loadSw, SW_KEY } from '../lib/stopwatchStorage';
@@ -58,7 +58,7 @@ export function Stopwatch() {
   }, [running]);
 
   // Undo toast after each finish tap.
-  const [toast, setToast] = useState<{ id: Id; label: string } | null>(null);
+  const [toast, setToast] = useState<{ id: Id; label: string; kind?: 'finish' | 'checkpoint' } | null>(null);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 6000);
@@ -107,7 +107,7 @@ export function Stopwatch() {
       });
       raceId = created.id;
     }
-    setSw({ raceId, startedAt: Date.now(), stoppedAt: null, rosterIds: [...rosterSel], finishes: [] });
+    setSw({ ...emptySw(), raceId, startedAt: Date.now(), stoppedAt: null, rosterIds: [...rosterSel], finishes: [] });
   };
 
   // ---------- Timing actions ----------
@@ -118,6 +118,19 @@ export function Stopwatch() {
     setToast({ id: f.id, label: `${runnerId ? store.runnerById(runnerId)?.firstName ?? 'Runner' : 'Unassigned'} · ${formatMs(f.elapsedMs, { tenths: true })}` });
     if (navigator.vibrate) navigator.vibrate(30);
   };
+  const recordCheckpoint = (runnerId: Id) => {
+    if (!running || sw.startedAt == null) return;
+    const label = sw.checkpointLabel.trim() || 'Checkpoint';
+    const c: Checkpoint = { id: newId(), runnerId, label, elapsedMs: Date.now() - sw.startedAt };
+    setSw((s) => ({
+      ...s,
+      // One split per runner per checkpoint: a second tap replaces the first.
+      checkpoints: [...s.checkpoints.filter((x) => !(x.runnerId === runnerId && x.label === label)), c],
+    }));
+    setToast({ id: c.id, label: `${store.runnerById(runnerId)?.firstName ?? 'Runner'} at ${label} · ${formatMs(c.elapsedMs, { tenths: true })}`, kind: 'checkpoint' });
+    if (navigator.vibrate) navigator.vibrate(15);
+  };
+  const removeCheckpoint = (id: Id) => setSw((s) => ({ ...s, checkpoints: s.checkpoints.filter((c) => c.id !== id) }));
   const undoLast = () => setSw((s) => ({ ...s, finishes: s.finishes.slice(0, -1) }));
   const removeFinish = (id: Id) => setSw((s) => ({ ...s, finishes: s.finishes.filter((f) => f.id !== id) }));
   const assignFinish = (id: Id, runnerId: Id | null) =>
@@ -142,11 +155,21 @@ export function Stopwatch() {
     if (!sw.raceId) return;
     const finishes = [...sw.finishes].sort((a, b) => a.elapsedMs - b.elapsedMs);
     const finishedIds = new Set(finishes.map((f) => f.runnerId).filter(Boolean));
+    const splitsFor = (runnerId: Id | null) =>
+      runnerId
+        ? sw.checkpoints
+            .filter((c) => c.runnerId === runnerId)
+            .sort((a, b) => a.elapsedMs - b.elapsedMs)
+            .map((c) => ({ label: c.label, timeMs: c.elapsedMs }))
+        : [];
     store.updateRace(sw.raceId, (r) => ({
       ...r,
       results: [
         ...r.results.filter((x) => x.runnerId && !finishedIds.has(x.runnerId)),
-        ...finishes.map((f) => ({ runnerId: f.runnerId, timeMs: f.elapsedMs })),
+        ...finishes.map((f) => {
+          const splits = splitsFor(f.runnerId);
+          return { runnerId: f.runnerId, timeMs: f.elapsedMs, ...(splits.length ? { splits } : {}) };
+        }),
       ],
     }));
     const raceId = sw.raceId;
@@ -296,7 +319,8 @@ export function Stopwatch() {
           <button
             className="btn small"
             onClick={() => {
-              removeFinish(toast.id);
+              if (toast.kind === 'checkpoint') removeCheckpoint(toast.id);
+              else removeFinish(toast.id);
               setToast(null);
             }}
           >
@@ -307,16 +331,50 @@ export function Stopwatch() {
 
       {running && (
         <>
-          <button className="btn finish-any" onClick={() => recordFinish(null)}>
-            FINISH (assign later)
-          </button>
-          <div className="finish-grid">
-            {remaining.map((r) => (
-              <button key={r.id} className="btn finish-runner" onClick={() => recordFinish(r.id)}>
-                <span className="finish-name">{r.firstName}</span>
-                <span className="finish-last">{r.lastName}</span>
+          <div className="mode-row">
+            <div className="tabs small">
+              <button className={`tab ${sw.mode === 'finish' ? 'active' : ''}`} onClick={() => setSw((s) => ({ ...s, mode: 'finish' }))}>
+                🏁 Finish line
               </button>
-            ))}
+              <button className={`tab ${sw.mode === 'checkpoint' ? 'active' : ''}`} onClick={() => setSw((s) => ({ ...s, mode: 'checkpoint' }))}>
+                📍 Checkpoint
+              </button>
+            </div>
+            {sw.mode === 'checkpoint' && (
+              <input
+                className="compact checkpoint-label"
+                value={sw.checkpointLabel}
+                onChange={(e) => setSw((s) => ({ ...s, checkpointLabel: e.target.value }))}
+                placeholder="Checkpoint name"
+                aria-label="Checkpoint name"
+              />
+            )}
+          </div>
+          {sw.mode === 'checkpoint' && (
+            <p className="muted small">
+              Tap a runner as they pass <strong>{sw.checkpointLabel.trim() || 'Checkpoint'}</strong>. Splits are for you only and never change results. Switch back to Finish line before the first finisher.
+            </p>
+          )}
+          {sw.mode === 'finish' && (
+            <button className="btn finish-any" onClick={() => recordFinish(null)}>
+              FINISH (assign later)
+            </button>
+          )}
+          <div className={`finish-grid ${sw.mode === 'checkpoint' ? 'checkpoint-mode' : ''}`}>
+            {remaining.map((r) => {
+              const cp = sw.checkpoints.find((c) => c.runnerId === r.id && c.label === (sw.checkpointLabel.trim() || 'Checkpoint'));
+              return (
+                <button
+                  key={r.id}
+                  className={`btn finish-runner ${sw.mode === 'checkpoint' && cp ? 'checked' : ''}`}
+                  onClick={() => (sw.mode === 'checkpoint' ? recordCheckpoint(r.id) : recordFinish(r.id))}
+                >
+                  <span className="finish-name">{r.firstName}</span>
+                  <span className="finish-last">{r.lastName}</span>
+                  {sw.mode === 'checkpoint' && cp && <span className="finish-cp">📍 {formatMs(cp.elapsedMs)}</span>}
+                </button>
+              );
+            })}
             {remaining.length === 0 && <p className="muted">Everyone on the roster has finished.</p>}
           </div>
         </>
@@ -325,7 +383,10 @@ export function Stopwatch() {
       <section className="card" ref={listRef}>
         <div className="row between">
           <h2>Finishes ({sw.finishes.length}/{roster.length})</h2>
-          {unassignedCount > 0 && <span className="badge warn">{unassignedCount} unassigned</span>}
+          <span>
+            {sw.checkpoints.length > 0 && <span className="badge">{sw.checkpoints.length} checkpoint splits</span>}
+            {unassignedCount > 0 && <span className="badge warn">{unassignedCount} unassigned</span>}
+          </span>
         </div>
         {sortedFinishes.length === 0 ? (
           <p className="muted">No finishes yet.</p>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { runnerFullName, useStore } from '../store';
 import type { RaceResult, Team } from '../types';
-import { raceBadge, sortedResults } from '../lib/stats';
+import { raceBadge, raceCheckpointAnalysis, sortedResults, type CheckpointRow } from '../lib/stats';
 import { distanceLabel, formatDate, formatPace, formatResult } from '../lib/time';
 import { TimeInput } from '../components/TimeInput';
 import { NumberInput } from '../components/NumberInput';
@@ -54,6 +54,7 @@ export function RaceDetail() {
   }
 
   const teamOf = (x: RaceResult) => store.runnerById(x.runnerId)?.team;
+  const checkpoints: Map<string, CheckpointRow[]> = store.sync.canEdit ? raceCheckpointAnalysis(race) : new Map();
   const visible = results
     .map((x, i) => ({ x, i }))
     .filter(({ x }) => teamFilter === 'all' || teamOf(x) === teamFilter);
@@ -200,6 +201,48 @@ export function RaceDetail() {
         )}
         <button className="btn" onClick={addResult}>+ Add result</button>
       </section>
+
+      {checkpoints.size > 0 && (
+        <section className="card coach-only">
+          <div className="row between">
+            <h2>Checkpoint splits</h2>
+            <span className="badge">coach view</span>
+          </div>
+          <p className="muted small">
+            Place at the checkpoint versus place at the finish. A positive number means they passed people after the checkpoint.
+            The checkpoint distance is arbitrary, so compare runners within this race, not across races.
+          </p>
+          {[...checkpoints.entries()].map(([label, rows]) => (
+            <div key={label}>
+              {checkpoints.size > 1 && <h3>{label}</h3>}
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Runner</th>
+                    <th>{label}</th>
+                    <th>Finish</th>
+                    <th>Back half</th>
+                    <th>Places</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.runnerId}>
+                      <td><Link to={`/runners/${row.runnerId}`}>{store.runnerName(row.runnerId)}</Link></td>
+                      <td className="mono nowrap">{formatResult(row.splitMs)} <span className="muted small">#{row.checkpointPlace}</span></td>
+                      <td className="mono nowrap">{formatResult(row.finishMs)} <span className="muted small">#{row.finishPlace}</span></td>
+                      <td className="mono nowrap">{formatResult(row.closingMs)}</td>
+                      <td className={row.placesGained > 0 ? 'good' : row.placesGained < 0 ? 'bad' : ''}>
+                        {row.placesGained > 0 ? `+${row.placesGained}` : row.placesGained}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

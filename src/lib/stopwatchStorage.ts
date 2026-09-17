@@ -3,7 +3,7 @@ import type { StopwatchState } from '../types';
 export const SW_KEY = 'xc-stopwatch-v1';
 
 export function emptySw(): StopwatchState {
-  return { raceId: null, startedAt: null, stoppedAt: null, rosterIds: [], finishes: [] };
+  return { raceId: null, startedAt: null, stoppedAt: null, rosterIds: [], finishes: [], checkpoints: [], mode: 'finish', checkpointLabel: 'Halfway' };
 }
 
 export function loadSw(): StopwatchState {
