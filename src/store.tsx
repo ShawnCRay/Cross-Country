@@ -189,7 +189,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCursor(now);
       pulledOnce.current = true;
       if (JSON.stringify(nextLocal) !== JSON.stringify(local) || currentSeasonId !== dataRef.current.currentSeasonId) {
-        setData(normalizeData({ ...dataRef.current, ...nextLocal, currentSeasonId }));
+        const merged = normalizeData({ ...dataRef.current, ...nextLocal, currentSeasonId });
+        // Update the ref now, not after render, so the push below diffs against the merged state.
+        dataRef.current = merged;
+        setData(merged);
       }
       setStatus('idle');
       setLastError(null);
