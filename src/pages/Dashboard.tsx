@@ -4,6 +4,7 @@ import { raceBadge, sortedResults } from '../lib/stats';
 import { distanceLabel, formatDate, formatMs } from '../lib/time';
 import { practiceSummary, practiceTypeLabel } from '../lib/labels';
 import { isStopwatchActive } from '../lib/stopwatchStorage';
+import { TEAM } from '../lib/team';
 
 export function Dashboard() {
   const store = useStore();
@@ -22,7 +23,10 @@ export function Dashboard() {
 
   return (
     <div className="page">
-      <h1>{store.season.name}</h1>
+      <div>
+        <h1>{store.season.name}</h1>
+        <p className="muted">{TEAM.fullName}</p>
+      </div>
 
       {swActive && (
         <Link to="/stopwatch" className="banner">
