@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { runnerFullName, sortRunners, useStore } from '../store';
 import type { Team } from '../types';
 import { TEAMS, teamLabel } from '../lib/labels';
-import { runnerRacePBs, seasonRaceDistanceLabel } from '../lib/stats';
+import { runnerRacePBs, runnerRaceSBs, seasonRaceDistanceLabel } from '../lib/stats';
 import { formatMs } from '../lib/time';
 
 export function Runners() {
@@ -85,6 +85,7 @@ export function Runners() {
           <thead>
             <tr>
               <th>Runner</th>
+              <th>{pbLabel} SB</th>
               <th>{pbLabel} PB</th>
               <th>Races</th>
             </tr>
@@ -93,6 +94,7 @@ export function Runners() {
             {roster.map((r) => {
               const pbs = runnerRacePBs(store.data, r.id);
               const pb = pbs.get(pbLabel);
+              const sb = runnerRaceSBs(store.data, r.id, store.season.id).get(pbLabel);
               const races = store.seasonRaces.filter((x) => x.results.some((res) => res.runnerId === r.id)).length;
               return (
                 <tr key={r.id}>
@@ -103,6 +105,7 @@ export function Runners() {
                       {r.grade ? ` · Grade ${r.grade}` : ''}
                     </div>
                   </td>
+                  <td className="mono">{sb ? formatMs(sb.result.timeMs) : '--'}</td>
                   <td className="mono">{pb ? formatMs(pb.result.timeMs) : '--'}</td>
                   <td>{races}</td>
                 </tr>

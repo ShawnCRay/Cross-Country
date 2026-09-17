@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
-import { isRacePB, sortedResults } from '../lib/stats';
+import { raceBadge, sortedResults } from '../lib/stats';
 import { distanceLabel, formatDate, formatMs } from '../lib/time';
 import { practiceSummary, practiceTypeLabel } from '../lib/labels';
 import { isStopwatchActive } from '../lib/stopwatchStorage';
@@ -16,8 +16,8 @@ export function Dashboard() {
     .slice(0, 3)
     .flatMap((race) =>
       sortedResults(race)
-        .filter((x) => x.runnerId && isRacePB(store.data, x.runnerId, race, x.timeMs))
-        .map((x) => ({ race, x })),
+        .map((x) => ({ race, x, badge: x.runnerId ? raceBadge(store.data, x.runnerId, race, x.timeMs) : null }))
+        .filter((m) => m.badge),
     );
 
   return (
@@ -64,16 +64,16 @@ export function Dashboard() {
 
       {recentPBs.length > 0 && (
         <section className="card">
-          <h2>Recent PBs</h2>
+          <h2>Recent bests</h2>
           <ul className="list">
-            {recentPBs.map(({ race, x }, i) => (
+            {recentPBs.map(({ race, x, badge }, i) => (
               <li key={i} className="row between">
                 <span>
                   <Link to={`/runners/${x.runnerId}`}>{store.runnerName(x.runnerId)}</Link>
                   <span className="muted"> · {race.name}</span>
                 </span>
                 <span className="mono">
-                  {formatMs(x.timeMs)} <span className="badge pb">PB</span>
+                  {formatMs(x.timeMs)} <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>
                 </span>
               </li>
             ))}

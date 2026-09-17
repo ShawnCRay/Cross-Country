@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../store';
 import type { Team } from '../types';
-import { runnerPracticeHistory, runnerPracticePBs, runnerRaceHistory, runnerRacePBs, seasonMileage } from '../lib/stats';
+import { raceBadge, runnerPracticeHistory, runnerPracticePBs, runnerRaceHistory, runnerRacePBs, runnerRaceSBs, seasonMileage } from '../lib/stats';
 import { distanceLabel, fmtMiles, formatDate, formatMs, formatPace } from '../lib/time';
 import { LineChart } from '../components/LineChart';
 import { ConfirmButton } from '../components/ConfirmButton';
@@ -18,6 +18,10 @@ export function RunnerDetail() {
 
   const raceHistory = useMemo(() => (runner ? runnerRaceHistory(store.data, runner.id) : []), [store.data, runner]);
   const racePBs = useMemo(() => (runner ? runnerRacePBs(store.data, runner.id) : new Map()), [store.data, runner]);
+  const raceSBs = useMemo(
+    () => (runner ? runnerRaceSBs(store.data, runner.id, store.season.id) : new Map()),
+    [store.data, runner, store.season.id],
+  );
   const practiceHistory = useMemo(() => (runner ? runnerPracticeHistory(store.data, runner.id) : []), [store.data, runner]);
   const practicePBs = useMemo(() => (runner ? runnerPracticePBs(store.data, runner.id) : []), [store.data, runner]);
 
@@ -130,13 +134,20 @@ export function RunnerDetail() {
       {runner.notes && !editing && <p className="notes">{runner.notes}</p>}
 
       <section className="stat-row">
-        {[...racePBs.entries()].map(([label, m]) => (
-          <div className="stat" key={label}>
-            <div className="stat-label">{label} PB</div>
-            <div className="stat-value mono">{formatMs(m.result.timeMs)}</div>
-            <div className="stat-sub">{m.race.name} · {formatDate(m.race.date, { month: 'short', day: 'numeric' })}</div>
-          </div>
-        ))}
+        {[...racePBs.entries()].map(([label, m]) => {
+          const sb = raceSBs.get(label);
+          return (
+            <div className="stat" key={label}>
+              <div className="stat-label">{label} PB</div>
+              <div className="stat-value mono">{formatMs(m.result.timeMs)}</div>
+              <div className="stat-sub">{m.race.name} · {formatDate(m.race.date, { month: 'short', day: 'numeric' })}</div>
+              <div className="stat-divider" />
+              <div className="stat-label">{label} SB · {store.season.name}</div>
+              <div className="stat-value mono small-value">{sb ? formatMs(sb.result.timeMs) : '--'}</div>
+              {sb && <div className="stat-sub">{sb.race.name} · {formatDate(sb.race.date, { month: 'short', day: 'numeric' })}</div>}
+            </div>
+          );
+        })}
         {practicePBs.map((pb) => (
           <div className="stat" key={pb.key}>
             <div className="stat-label">{pb.label}</div>
@@ -195,23 +206,24 @@ export function RunnerDetail() {
                 <th>Dist</th>
                 <th>Time</th>
                 <th>Pace</th>
-                <th>Team place</th>
+                <th>Place</th>
               </tr>
             </thead>
             <tbody>
               {[...raceHistory].reverse().map((m) => {
-                const pb = racePBs.get(distanceLabel(m.race.distanceMiles));
-                const isPB = pb?.race.id === m.race.id;
+                const badge = raceBadge(store.data, runner.id, m.race, m.result.timeMs);
                 return (
                   <tr key={m.race.id}>
-                    <td>{formatDate(m.race.date)}</td>
+                    <td className="nowrap">{formatDate(m.race.date, { month: 'short', day: 'numeric' })}</td>
                     <td><Link to={`/races/${m.race.id}`}>{m.race.name}</Link></td>
                     <td>{distanceLabel(m.race.distanceMiles)}</td>
                     <td className="mono">
-                      {formatMs(m.result.timeMs)} {isPB && <span className="badge pb">PB</span>}
+                      {formatMs(m.result.timeMs)} {badge && <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>}
                     </td>
                     <td className="mono">{formatPace(m.result.timeMs, m.race.distanceMiles)}</td>
-                    <td>{m.teamPlace}{m.result.place ? ` (overall ${m.result.place})` : ''}</td>
+                    <td className="nowrap" title="Place on the team, then overall place if entered">
+                      {m.teamPlace}{m.result.place ? ` (${m.result.place} overall)` : ''}
+                    </td>
                   </tr>
                 );
               })}
@@ -237,7 +249,7 @@ export function RunnerDetail() {
             <tbody>
               {[...practiceHistory].reverse().map(({ practice, entry }) => (
                 <tr key={practice.id}>
-                  <td>{formatDate(practice.date)}</td>
+                  <td className="nowrap">{formatDate(practice.date, { month: 'short', day: 'numeric' })}</td>
                   <td><Link to={`/practices/${practice.id}`}>{practice.title}</Link></td>
                   <td>{practiceTypeLabel(practice.type)}</td>
                   <td className="mono">{describeEntry(practice, entry)}</td>

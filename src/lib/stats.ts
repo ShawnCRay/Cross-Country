@@ -33,16 +33,45 @@ export function runnerRacePBs(data: AppData, runnerId: Id): Map<string, RaceMark
   return pbs;
 }
 
-/** Was this result a PB for the runner at the time it was run (or since)? Only compares against earlier-dated races and earlier entries in the same race list. */
+/** Best race time per distance label within one season. */
+export function runnerRaceSBs(data: AppData, runnerId: Id, seasonId: Id): Map<string, RaceMark> {
+  const sbs = new Map<string, RaceMark>();
+  for (const m of runnerRaceHistory(data, runnerId)) {
+    if (m.race.seasonId !== seasonId) continue;
+    const label = distanceLabel(m.race.distanceMiles);
+    const cur = sbs.get(label);
+    if (!cur || m.result.timeMs < cur.result.timeMs) sbs.set(label, m);
+  }
+  return sbs;
+}
+
+/** Was this result a PB for the runner at the time it was run? Compares against earlier-dated races at the same distance. */
 export function isRacePB(data: AppData, runnerId: Id, race: Race, timeMs: number): boolean {
+  return beatsEarlier(data, runnerId, race, timeMs, false);
+}
+
+/** Was this result a season best at the time it was run (best so far that season at the distance)? */
+export function isRaceSB(data: AppData, runnerId: Id, race: Race, timeMs: number): boolean {
+  return beatsEarlier(data, runnerId, race, timeMs, true);
+}
+
+function beatsEarlier(data: AppData, runnerId: Id, race: Race, timeMs: number, sameSeasonOnly: boolean): boolean {
   const label = distanceLabel(race.distanceMiles);
   for (const m of runnerRaceHistory(data, runnerId)) {
     if (m.race.id === race.id) continue;
     if (m.race.date > race.date) continue;
+    if (sameSeasonOnly && m.race.seasonId !== race.seasonId) continue;
     if (distanceLabel(m.race.distanceMiles) !== label) continue;
     if (m.result.timeMs <= timeMs) return false;
   }
   return true;
+}
+
+/** "PB", "SB", or null for a race result. PB implies SB, so only one badge is shown. */
+export function raceBadge(data: AppData, runnerId: Id, race: Race, timeMs: number): 'PB' | 'SB' | null {
+  if (isRacePB(data, runnerId, race, timeMs)) return 'PB';
+  if (isRaceSB(data, runnerId, race, timeMs)) return 'SB';
+  return null;
 }
 
 export interface PracticeMark {
