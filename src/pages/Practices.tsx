@@ -135,13 +135,10 @@ export function Practices() {
       {store.seasonPractices.length === 0 ? (
         <p className="muted">No practices logged for {store.season.name} yet.</p>
       ) : (
-        <table className="table">
+        <table className="table roster">
           <thead>
             <tr>
-              <th>Date</th>
               <th>Practice</th>
-              <th>Type</th>
-              <th>Workout</th>
               <th>Present</th>
               <th>Results</th>
             </tr>
@@ -149,10 +146,12 @@ export function Practices() {
           <tbody>
             {store.seasonPractices.map((p) => (
               <tr key={p.id}>
-                <td>{formatDate(p.date)}</td>
-                <td><Link to={`/practices/${p.id}`}>{p.title}</Link></td>
-                <td>{practiceTypeLabel(p.type)}</td>
-                <td>{practiceSummary(p)}</td>
+                <td>
+                  <Link to={`/practices/${p.id}`} className="roster-name">{p.title}</Link>
+                  <div className="muted small">
+                    {formatDate(p.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {practiceTypeLabel(p.type)} · {practiceSummary(p)}
+                  </div>
+                </td>
                 <td>{new Set([...(p.attendeeIds ?? []), ...p.entries.map((e) => e.runnerId)]).size}</td>
                 <td>{p.entries.length}</td>
               </tr>
