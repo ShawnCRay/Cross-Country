@@ -28,7 +28,23 @@ The build uses a relative base path, so `dist/` can be dropped onto any static h
 
 ## Where the data lives
 
-All data is stored in the browser's localStorage on the device you use. There is no sync between devices, so export a backup from Settings after race day and whenever you switch phones or laptops. The backup file is plain JSON.
+Out of the box, data is stored in the browser on the device you use. Export a backup from Settings to move it. The backup file is plain JSON.
+
+## Sync across devices and a read-only view for parents
+
+Turn on sync and the phone, the laptop, and everyone with the link see the same data. Coaches sign in with Google to edit; everyone else sees a read-only view. Writes queue while offline and send when signal returns.
+
+It uses Firebase (free tier is plenty for a team). One-time setup, about ten minutes:
+
+1. Go to https://console.firebase.google.com, click **Add project**, name it, and finish (Analytics can be off).
+2. **Build → Firestore Database → Create database.** Pick a location, start in **production mode**.
+3. On the Firestore **Rules** tab, paste the contents of `firestore.rules` from this repo, replace `coach@example.com` with the coach's Google email (add more, comma separated, for assistant coaches), and click **Publish**.
+4. **Build → Authentication → Get started → Sign-in method → Google → Enable**, then Save.
+5. On the Authentication **Settings → Authorized domains** tab, add the domain the site is served from (for GitHub Pages that is `<your-username>.github.io`).
+6. **Project settings (gear icon) → Your apps → Web (</> icon)**, register the app, and copy the `firebaseConfig` object it shows.
+7. In `src/firebase-config.ts`, paste that object as `firebaseConfig` and put the same coach emails from step 3 in `editorEmails`. Commit and push.
+
+The web config is safe to commit; the Firestore rules are what control access. Once deployed, the first coach to sign in on a device that already has data pushes that data up, and every other device picks it up.
 
 ## Tech
 

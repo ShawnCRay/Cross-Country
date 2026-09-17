@@ -94,6 +94,37 @@ export function Settings() {
       </section>
 
       <section className="card">
+        <h2>Sync &amp; sharing</h2>
+        {store.sync.enabled ? (
+          <>
+            <p className="muted">
+              Sync is on. Data is shared across every device that opens this site. Anyone with the link can view;
+              only coach accounts can edit.
+            </p>
+            <p>
+              {store.sync.user
+                ? `Signed in as ${store.sync.user.email ?? store.sync.user.displayName} (${store.sync.canEdit ? 'coach, can edit' : 'view only'})`
+                : 'Not signed in (view only).'}
+            </p>
+            <div className="row wrap gap">
+              {store.sync.user ? (
+                <button className="btn" onClick={() => store.sync.signOut()}>Sign out</button>
+              ) : (
+                <button className="btn primary" onClick={() => store.sync.signIn().catch((e) => alert(`Sign-in failed: ${(e as Error).message}`))}>
+                  Coach sign in
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="muted">
+            Sync is not set up, so data stays on this device only. See the README in the repo for how to turn on
+            cross-device sync and a read-only view for parents.
+          </p>
+        )}
+      </section>
+
+      <section className="card">
         <h2>Backup &amp; restore</h2>
         <p className="muted">
           Everything is stored in this browser on this device. Export a backup regularly, and to move to another device or browser.
