@@ -163,12 +163,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const coachKeyRef = useRef(coachKey);
+  useEffect(() => {
+    coachKeyRef.current = coachKey;
+  }, [coachKey]);
+
   const pull = useCallback(async () => {
     if (pulling.current) return;
     pulling.current = true;
     try {
       const cursor = getCursor();
-      const { now, rows } = await fetchChanges(cursor);
+      const { now, rows } = await fetchChanges(cursor, coachKeyRef.current);
       const local = collectionsOf(dataRef.current);
       const base = known.current ?? emptyCollections;
       const applied = applyRows(local, base, rows);
@@ -283,19 +288,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('online', push);
   }, [mode, push]);
 
-  const signIn = useCallback(async (key: string) => {
-    const ok = await verifyKey(key.trim());
-    if (ok) {
-      setKey(key.trim());
-      setCoachKey(key.trim());
-      setLastError(null);
-    }
-    return ok;
-  }, []);
+  const signIn = useCallback(
+    async (key: string) => {
+      const ok = await verifyKey(key.trim());
+      if (ok) {
+        setKey(key.trim());
+        setCoachKey(key.trim());
+        coachKeyRef.current = key.trim();
+        setLastError(null);
+        // Practices are only sent to coaches, so re-pull everything from the start.
+        if (known.current) {
+          known.current = { ...known.current, practices: [] };
+          saveSynced(known.current);
+        }
+        setCursor(0);
+        pull();
+      }
+      return ok;
+    },
+    [pull],
+  );
   const signOut = useCallback(() => {
     setKey(null);
     setCoachKey(null);
-  }, []);
+    coachKeyRef.current = null;
+    if (mode === 'on') {
+      // Drop coach-only data from this device.
+      if (known.current) {
+        known.current = { ...known.current, practices: [] };
+        saveSynced(known.current);
+      }
+      setData((d) => ({ ...d, practices: [] }));
+    }
+  }, [mode]);
 
   const update = useCallback((fn: (d: AppData) => AppData) => {
     if (!canEditRef.current) return;

@@ -109,10 +109,10 @@ export async function verifyKey(key: string): Promise<boolean> {
   return res.ok;
 }
 
-export async function fetchChanges(since: number): Promise<{ now: number; rows: RemoteRow[] }> {
-  const res = await fetch(api(`api/changes?since=${since}`), { cache: 'no-store' });
+export async function fetchChanges(since: number, key: string | null): Promise<{ now: number; rows: RemoteRow[]; coach: boolean }> {
+  const res = await fetch(api(`api/changes?since=${since}`), { cache: 'no-store', headers: key ? { 'x-coach-key': key } : {} });
   if (!res.ok) throw new Error(`Pull failed (${res.status})`);
-  return (await res.json()) as { now: number; rows: RemoteRow[] };
+  return (await res.json()) as { now: number; rows: RemoteRow[]; coach: boolean };
 }
 
 export class AuthError extends Error {}

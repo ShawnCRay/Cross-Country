@@ -6,6 +6,7 @@
  *  GET  /api/health            -> { ok: true }
  *  POST /api/auth  { key }     -> 200 if the key is a coach passcode, 401 otherwise
  *  GET  /api/changes?since=N   -> { now, rows: [{ collection, id, data, deleted, updated_at }] }
+ *                                 practices are only included when X-Coach-Key is valid
  *  POST /api/changes           -> apply { upserts: [{collection,id,data}], deletes: [{collection,id}] }
  *                                 requires header X-Coach-Key
  *  GET  /api/backups           -> list stored snapshots (coach)
@@ -89,13 +90,19 @@ export default {
 
     if (url.pathname === '/api/changes' && request.method === 'GET') {
       const since = Math.max(0, Number(url.searchParams.get('since') ?? 0) || 0);
+      const coach = await keyIsValid(env, request.headers.get('x-coach-key'));
       const { results } = await env.DB.prepare(
         'SELECT collection, id, data, deleted, updated_at FROM entities WHERE updated_at >= ? ORDER BY updated_at ASC',
       )
         .bind(since)
         .all();
-      const rows = (results ?? []).filter((r) => !(since === 0 && (r as { deleted: number }).deleted));
-      return json({ now: Date.now(), rows });
+      const rows = (results ?? []).filter((r) => {
+        const row = r as { collection: string; deleted: number };
+        if (since === 0 && row.deleted) return false;
+        if (!coach && row.collection === 'practices') return false;
+        return true;
+      });
+      return json({ now: Date.now(), rows, coach });
     }
 
     if (url.pathname === '/api/changes' && request.method === 'POST') {
