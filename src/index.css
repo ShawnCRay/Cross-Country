@@ -97,6 +97,19 @@ input.invalid { border-color: var(--danger); }
 .inline-edit { background: transparent; border-color: transparent; padding: 0.2rem 0.4rem; font-weight: 600; width: auto; }
 .inline-edit:hover, .inline-edit:focus { border-color: var(--border); background: var(--bg); }
 input[type='checkbox'] { width: auto; }
+/* iOS Safari gives date inputs an intrinsic width unless native styling is reset. */
+input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 2.6rem;
+  text-align: left;
+}
+input[type='date']::-webkit-date-and-time-value { text-align: left; }
+.field, .form-row > * { min-width: 0; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
