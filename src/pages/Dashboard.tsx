@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { raceBadge, sortedResults } from '../lib/stats';
-import { distanceLabel, formatDate, formatMs } from '../lib/time';
+import { distanceLabel, formatDate, formatMs, relativeDay, todayIso } from '../lib/time';
 import { practiceSummary, practiceTypeLabel } from '../lib/labels';
 import { isStopwatchActive } from '../lib/stopwatchStorage';
 import { TEAM } from '../lib/team';
@@ -10,7 +10,9 @@ import { LakeMark } from '../components/LakeMark';
 export function Dashboard() {
   const store = useStore();
   const swActive = isStopwatchActive();
-  const recentRaces = store.seasonRaces.slice(0, 5);
+  const today = todayIso();
+  const upcomingRaces = store.seasonRaces.filter((r) => r.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const recentRaces = store.seasonRaces.filter((r) => r.date < today).slice(0, 5);
   const recentPractices = store.seasonPractices.slice(0, 5);
 
   // Recent PBs: any race result in the last 3 races of the season that was a PB.
@@ -82,6 +84,26 @@ export function Dashboard() {
                 </span>
                 <span className="mono">
                   {formatMs(x.timeMs)} <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {upcomingRaces.length > 0 && (
+        <section className="card">
+          <h2>Upcoming races</h2>
+          <ul className="list">
+            {upcomingRaces.map((r) => (
+              <li key={r.id} className="row between">
+                <span>
+                  <Link to={`/races/${r.id}`}>{r.name}</Link>
+                  <span className="muted small"> · {distanceLabel(r.distanceMiles)}{r.location ? ` · ${r.location}` : ''}</span>
+                </span>
+                <span className="small nowrap">
+                  <span className="muted">{formatDate(r.date, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                  <span className="badge">{relativeDay(r.date)}</span>
                 </span>
               </li>
             ))}

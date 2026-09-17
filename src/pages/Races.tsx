@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
-import { DISTANCE_PRESETS, distanceLabel, formatDate, formatMs, todayIso } from '../lib/time';
+import { DISTANCE_PRESETS, distanceLabel, formatDate, formatMs, relativeDay, todayIso } from '../lib/time';
 import { sortedResults } from '../lib/stats';
 
 export function Races() {
@@ -13,6 +13,10 @@ export function Races() {
   const [location, setLocation] = useState('');
   const [distance, setDistance] = useState(String(DISTANCE_PRESETS[0].miles));
   const [customDistance, setCustomDistance] = useState('');
+
+  const today = todayIso();
+  const upcoming = store.seasonRaces.filter((r) => r.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const past = store.seasonRaces.filter((r) => r.date < today);
 
   const create = (e: FormEvent) => {
     e.preventDefault();
@@ -77,34 +81,69 @@ export function Races() {
       {store.seasonRaces.length === 0 ? (
         <p className="muted">No races for {store.season.name} yet. Create one here or start the stopwatch on race day.</p>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Race</th>
-              <th>Dist</th>
-              <th>Finishers</th>
-              <th>Top time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {store.seasonRaces.map((r) => {
-              const top = sortedResults(r)[0];
-              return (
-                <tr key={r.id}>
-                  <td>{formatDate(r.date)}</td>
-                  <td>
-                    <Link to={`/races/${r.id}`}>{r.name}</Link>
-                    {r.location && <span className="muted small"> · {r.location}</span>}
-                  </td>
-                  <td>{distanceLabel(r.distanceMiles)}</td>
-                  <td>{r.results.length}</td>
-                  <td className="mono">{top ? `${formatMs(top.timeMs)} ${store.runnerName(top.runnerId)}` : '--'}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <>
+          {upcoming.length > 0 && (
+            <section>
+              <h2>Upcoming</h2>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Race</th>
+                    <th>Dist</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcoming.map((r) => (
+                    <tr key={r.id}>
+                      <td className="nowrap">{formatDate(r.date, { weekday: 'short', month: 'short', day: 'numeric' })}</td>
+                      <td>
+                        <Link to={`/races/${r.id}`}>{r.name}</Link>
+                        {r.location && <div className="muted small">{r.location}</div>}
+                      </td>
+                      <td>{distanceLabel(r.distanceMiles)}</td>
+                      <td className="nowrap"><span className="badge">{relativeDay(r.date)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+          {past.length > 0 && (
+            <section>
+              <h2>Results</h2>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Race</th>
+                    <th>Dist</th>
+                    <th>Ran</th>
+                    <th>Top time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {past.map((r) => {
+                    const top = sortedResults(r)[0];
+                    return (
+                      <tr key={r.id}>
+                        <td className="nowrap">{formatDate(r.date, { month: 'short', day: 'numeric' })}</td>
+                        <td>
+                          <Link to={`/races/${r.id}`}>{r.name}</Link>
+                          {r.location && <div className="muted small">{r.location}</div>}
+                        </td>
+                        <td>{distanceLabel(r.distanceMiles)}</td>
+                        <td>{r.results.length}</td>
+                        <td className="mono nowrap">{top ? `${formatMs(top.timeMs)} ${store.runnerById(top.runnerId)?.firstName ?? ''}` : '--'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </section>
+          )}
+        </>
       )}
     </div>
   );
