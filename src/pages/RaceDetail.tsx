@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { runnerFullName, useStore } from '../store';
 import type { RaceResult, Team } from '../types';
-import { isRacePB, sortedResults } from '../lib/stats';
+import { raceBadge, sortedResults } from '../lib/stats';
 import { distanceLabel, formatDate, formatMs, formatPace } from '../lib/time';
 import { TimeInput } from '../components/TimeInput';
 import { NumberInput } from '../components/NumberInput';
@@ -181,7 +181,10 @@ export function RaceDetail() {
                   </td>
                   <td>
                     <TimeInput valueMs={x.timeMs} onChange={(ms) => ms != null && setResult(i, { timeMs: ms })} className="compact" />
-                    {x.runnerId && isRacePB(store.data, x.runnerId, race, x.timeMs) && <span className="badge pb">PB</span>}
+                    {x.runnerId && (() => {
+                      const b = raceBadge(store.data, x.runnerId, race, x.timeMs);
+                      return b ? <span className={`badge ${b === 'PB' ? 'pb' : 'sb'}`}>{b}</span> : null;
+                    })()}
                   </td>
                   <td className="mono">{formatPace(x.timeMs, race.distanceMiles)}</td>
                   <td>
