@@ -102,3 +102,19 @@ export function fmtMiles(miles: number | undefined): string {
   if (miles == null) return '--';
   return `${Number(miles.toFixed(2))} mi`;
 }
+
+/** Whole days from today to the given date (negative if past). */
+export function daysFromToday(iso: string): number {
+  const a = localDate(todayIso()).getTime();
+  const b = localDate(iso).getTime();
+  return Math.round((b - a) / 86400000);
+}
+
+export function relativeDay(iso: string): string {
+  const d = daysFromToday(iso);
+  if (d === 0) return 'Today';
+  if (d === 1) return 'Tomorrow';
+  if (d === -1) return 'Yesterday';
+  if (d > 1) return `In ${d} days`;
+  return `${-d} days ago`;
+}
