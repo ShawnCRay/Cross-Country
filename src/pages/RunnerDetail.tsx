@@ -53,6 +53,7 @@ export function RunnerDetail() {
     );
   }
 
+  const coach = store.sync.canEdit;
   const onRoster = runner.seasonIds.includes(store.season.id);
   const mileage = seasonMileage(store.data, runner.id, store.season.id);
   const seasonRaceCount = raceHistory.filter((m) => m.race.seasonId === store.season.id).length;
@@ -152,7 +153,7 @@ export function RunnerDetail() {
             </div>
           );
         })}
-        {practicePBs.map((pb) => (
+        {coach && practicePBs.map((pb) => (
           <div className="stat" key={pb.key}>
             <div className="stat-label">{pb.label}</div>
             <div className="stat-value mono">{pb.valueMs != null ? formatResult(pb.valueMs) : fmtMiles(pb.valueMiles)}</div>
@@ -161,8 +162,14 @@ export function RunnerDetail() {
         ))}
         <div className="stat">
           <div className="stat-label">{store.season.name}</div>
-          <div className="stat-value text">{seasonRaceCount} races · {attendance.attended}/{attendance.held} practices</div>
-          <div className="stat-sub">{fmtMiles(mileage)} logged{attendance.held ? ` · ${Math.round((100 * attendance.attended) / attendance.held)}% attendance` : ''}</div>
+          {coach ? (
+            <>
+              <div className="stat-value text">{seasonRaceCount} races · {attendance.attended}/{attendance.held} practices</div>
+              <div className="stat-sub">{fmtMiles(mileage)} logged{attendance.held ? ` · ${Math.round((100 * attendance.attended) / attendance.held)}% attendance` : ''}</div>
+            </>
+          ) : (
+            <div className="stat-value text">{seasonRaceCount} races</div>
+          )}
         </div>
       </section>
 
@@ -187,7 +194,7 @@ export function RunnerDetail() {
         </section>
       )}
 
-      {timedMileHistory.length > 1 && (
+      {coach && timedMileHistory.length > 1 && (
         <section className="card">
           <h2>Timed mile progress</h2>
           <LineChart
@@ -274,6 +281,7 @@ export function RunnerDetail() {
         </section>
       )}
 
+      {coach && (
       <section className="card">
         <h2>Practice history</h2>
         {practiceHistory.length === 0 ? (
@@ -301,6 +309,7 @@ export function RunnerDetail() {
           </table>
         )}
       </section>
+      )}
     </div>
   );
 }

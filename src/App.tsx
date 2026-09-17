@@ -1,4 +1,4 @@
-import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { TEAM } from './lib/team';
 import { LakeMark } from './components/LakeMark';
@@ -26,12 +26,12 @@ function SeasonPicker() {
 }
 
 const NAV = [
-  { to: '/', label: 'Home', icon: '🏠' },
-  { to: '/stopwatch', label: 'Stopwatch', icon: '⏱' },
-  { to: '/runners', label: 'Runners', icon: '👟' },
-  { to: '/practices', label: 'Practices', icon: '📋' },
-  { to: '/races', label: 'Races', icon: '🏁' },
-  { to: '/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/', label: 'Home', icon: '🏠', coach: false },
+  { to: '/stopwatch', label: 'Stopwatch', icon: '⏱', coach: true },
+  { to: '/runners', label: 'Runners', icon: '👟', coach: false },
+  { to: '/practices', label: 'Practices', icon: '📋', coach: true },
+  { to: '/races', label: 'Races', icon: '🏁', coach: false },
+  { to: '/settings', label: 'Settings', icon: '⚙️', coach: false },
 ];
 
 function SyncControls() {
@@ -86,11 +86,11 @@ function Shell() {
         <fieldset disabled={readOnly} className="page-fieldset">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/stopwatch" element={<Stopwatch />} />
+          <Route path="/stopwatch" element={readOnly ? <Navigate to="/" replace /> : <Stopwatch />} />
           <Route path="/runners" element={<Runners />} />
           <Route path="/runners/:id" element={<RunnerDetail />} />
-          <Route path="/practices" element={<Practices />} />
-          <Route path="/practices/:id" element={<PracticeDetail />} />
+          <Route path="/practices" element={readOnly ? <Navigate to="/" replace /> : <Practices />} />
+          <Route path="/practices/:id" element={readOnly ? <Navigate to="/" replace /> : <PracticeDetail />} />
           <Route path="/races" element={<Races />} />
           <Route path="/races/:id" element={<RaceDetail />} />
           <Route path="/settings" element={<Settings />} />
@@ -98,7 +98,7 @@ function Shell() {
         </fieldset>
       </main>
       <nav className="bottom-nav">
-        {NAV.map((n) => (
+        {NAV.filter((n) => !n.coach || !readOnly).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <span className="nav-icon" aria-hidden>{n.icon}</span>
             <span>{n.label}</span>

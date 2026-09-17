@@ -10,6 +10,7 @@ import { LakeMark } from '../components/LakeMark';
 export function Dashboard() {
   const store = useStore();
   const swActive = isStopwatchActive();
+  const coach = store.sync.canEdit;
   const today = todayIso();
   const upcomingRaces = store.seasonRaces.filter((r) => r.date >= today).sort((a, b) => a.date.localeCompare(b.date));
   const recentRaces = store.seasonRaces.filter((r) => r.date < today).slice(0, 5);
@@ -34,7 +35,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {swActive && (
+      {swActive && coach && (
         <Link to="/stopwatch" className="banner">
           ⏱ A race clock is running. Tap to return to the stopwatch.
         </Link>
@@ -49,18 +50,22 @@ export function Dashboard() {
           <div className="stat-label">Races</div>
           <div className="stat-value">{store.seasonRaces.length}</div>
         </Link>
-        <Link to="/practices" className="stat">
-          <div className="stat-label">Practices</div>
-          <div className="stat-value">{store.seasonPractices.length}</div>
-        </Link>
+        {coach && (
+          <Link to="/practices" className="stat">
+            <div className="stat-label">Practices</div>
+            <div className="stat-value">{store.seasonPractices.length}</div>
+          </Link>
+        )}
       </section>
 
-      <div className="quick-actions">
-        <Link to="/stopwatch" className="btn primary xl">⏱ Race Stopwatch</Link>
-        <Link to="/practices" className="btn xl">+ Log a practice</Link>
-      </div>
+      {coach && (
+        <div className="quick-actions">
+          <Link to="/stopwatch" className="btn primary xl">⏱ Race Stopwatch</Link>
+          <Link to="/practices" className="btn xl">+ Log a practice</Link>
+        </div>
+      )}
 
-      {store.seasonRunners.length === 0 && (
+      {store.seasonRunners.length === 0 && coach && (
         <section className="card">
           <h2>Get started</h2>
           <ol className="steps">
@@ -130,6 +135,7 @@ export function Dashboard() {
             </ul>
           )}
         </section>
+        {coach && (
         <section className="card">
           <h2>Recent practices</h2>
           {recentPractices.length === 0 ? (
@@ -148,6 +154,7 @@ export function Dashboard() {
             </ul>
           )}
         </section>
+        )}
       </div>
     </div>
   );
