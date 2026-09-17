@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { runnerFullName, useStore } from '../store';
 import type { RaceResult, Team } from '../types';
 import { raceBadge, sortedResults } from '../lib/stats';
-import { distanceLabel, formatDate, formatMs, formatPace } from '../lib/time';
+import { distanceLabel, formatDate, formatPace, formatResult } from '../lib/time';
 import { TimeInput } from '../components/TimeInput';
 import { NumberInput } from '../components/NumberInput';
 import { ConfirmButton } from '../components/ConfirmButton';
@@ -126,9 +126,9 @@ export function RaceDetail() {
           {teamStats.map((s) => (
             <div className="stat" key={s.team}>
               <div className="stat-label">{teamLabel(s.team)} · {s.count} finishers</div>
-              <div className="stat-value mono">{formatMs(s.avg)}</div>
+              <div className="stat-value mono">{formatResult(s.avg)}</div>
               <div className="stat-sub">
-                top {Math.min(5, s.count)} avg{s.spread != null ? ` · 1-${Math.min(5, s.count)} spread ${formatMs(s.spread)}` : ''}
+                top {Math.min(5, s.count)} avg{s.spread != null ? ` · 1-${Math.min(5, s.count)} spread ${formatResult(s.spread)}` : ''}
               </div>
             </div>
           ))}

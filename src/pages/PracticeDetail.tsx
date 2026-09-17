@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { runnerFullName, useStore } from '../store';
 import type { PracticeEntry, Runner } from '../types';
 import { averageSplit, isPracticePB } from '../lib/stats';
-import { distanceLabel, fmtMiles, formatMs, formatPace, parseTime } from '../lib/time';
+import { distanceLabel, fmtMiles, formatMs, formatPace, formatResult, parseTime } from '../lib/time';
 import { TimeInput } from '../components/TimeInput';
 import { NumberInput } from '../components/NumberInput';
 import { ConfirmButton } from '../components/ConfirmButton';
@@ -69,8 +69,19 @@ export function PracticeDetail() {
       const merged: PracticeEntry = { ...(existing ?? { runnerId }), ...patch };
       const hasValue = merged.distanceMiles != null || merged.timeMs != null || (merged.splitsMs?.length ?? 0) > 0 || !!merged.notes;
       const others = p.entries.filter((e) => e.runnerId !== runnerId);
-      return { ...p, entries: hasValue ? [...others, merged] : others };
+      const attendeeIds = hasValue && !(p.attendeeIds ?? []).includes(runnerId) ? [...(p.attendeeIds ?? []), runnerId] : p.attendeeIds;
+      return { ...p, entries: hasValue ? [...others, merged] : others, attendeeIds };
     });
+  const attendees = new Set(practice.attendeeIds ?? []);
+  const setPresent = (runnerId: string, present: boolean) =>
+    store.updatePractice(practice.id, (p) => {
+      const ids = new Set(p.attendeeIds ?? []);
+      if (present) ids.add(runnerId);
+      else ids.delete(runnerId);
+      return { ...p, attendeeIds: [...ids] };
+    });
+  const setAllPresent = (present: boolean) =>
+    store.updatePractice(practice.id, (p) => ({ ...p, attendeeIds: present ? runners.map((r) => r.id) : [] }));
 
   // Season roster plus anyone with an entry (in case they left the roster).
   const runners = [...store.seasonRunners];
@@ -182,6 +193,30 @@ export function PracticeDetail() {
 
       <section className="card">
         <div className="row between">
+          <h2>Attendance ({attendees.size}/{runners.length})</h2>
+          <div className="row gap">
+            <button className="btn small" onClick={() => setAllPresent(true)}>All present</button>
+            <button className="btn small" onClick={() => setAllPresent(false)}>Clear</button>
+          </div>
+        </div>
+        <div className="chip-grid">
+          {runners.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              className={`chip ${attendees.has(r.id) ? 'on' : ''}`}
+              onClick={() => setPresent(r.id, !attendees.has(r.id))}
+              aria-pressed={attendees.has(r.id)}
+            >
+              {attendees.has(r.id) ? '✓ ' : ''}{r.firstName} {r.lastName}
+            </button>
+          ))}
+        </div>
+        <p className="muted small">Tap a name to mark present. Entering a result marks them present automatically.</p>
+      </section>
+
+      <section className="card">
+        <div className="row between">
           <h2>Results ({practice.entries.length}/{runners.length})</h2>
           <div className="tabs small">
             <button className={`tab ${sortBy === 'name' ? 'active' : ''}`} onClick={() => setSortBy('name')}>By name</button>
@@ -250,7 +285,7 @@ export function PracticeDetail() {
                     <>
                       <td><SplitsInput value={e?.splitsMs} onChange={(v) => setEntry(r.id, { splitsMs: v })} /></td>
                       <td className="mono">
-                        {e?.splitsMs?.length ? `${formatMs(averageSplit(e.splitsMs) ?? 0)} (${e.splitsMs.length}/${practice.intervalReps ?? '?'})` : ''}
+                        {e?.splitsMs?.length ? `${formatResult(averageSplit(e.splitsMs) ?? 0)} (${e.splitsMs.length}/${practice.intervalReps ?? '?'})` : ''}
                       </td>
                     </>
                   )}

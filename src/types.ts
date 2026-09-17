@@ -48,6 +48,8 @@ export interface Practice {
   /** intervals: distance per rep and number of reps. */
   intervalDistanceMiles?: number;
   intervalReps?: number;
+  /** Runners who showed up. Entering a result marks a runner present automatically. */
+  attendeeIds?: Id[];
   entries: PracticeEntry[];
 }
 

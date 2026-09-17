@@ -173,3 +173,15 @@ export function seasonRaceDistanceLabel(races: Race[]): string {
   for (const [l, n] of counts) if (n > bestN) { best = l; bestN = n; }
   return best;
 }
+
+/** Practices attended vs held in a season. A runner counts as present if marked or if they have a result. */
+export function seasonAttendance(data: AppData, runnerId: Id, seasonId: Id): { attended: number; held: number } {
+  let attended = 0;
+  let held = 0;
+  for (const p of data.practices) {
+    if (p.seasonId !== seasonId) continue;
+    held++;
+    if ((p.attendeeIds ?? []).includes(runnerId) || p.entries.some((e) => e.runnerId === runnerId)) attended++;
+  }
+  return { attended, held };
+}

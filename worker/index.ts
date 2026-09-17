@@ -8,6 +8,11 @@
  *  GET  /api/changes?since=N   -> { now, rows: [{ collection, id, data, deleted, updated_at }] }
  *  POST /api/changes           -> apply { upserts: [{collection,id,data}], deletes: [{collection,id}] }
  *                                 requires header X-Coach-Key
+ *  GET  /api/backups           -> list stored snapshots (coach)
+ *  POST /api/backups           -> take a snapshot now (coach)
+ *  GET  /api/backups/:id       -> download one snapshot as a backup JSON file (coach)
+ *
+ * A cron trigger takes a nightly snapshot and keeps the last 30.
  */
 interface Env {
   DB: D1Database;
@@ -39,6 +44,31 @@ async function keyIsValid(env: Env, key: string | null): Promise<boolean> {
     if (diff === 0 && k.trim().length > 0) return true;
   }
   return false;
+}
+
+async function takeSnapshot(env: Env, kind: string): Promise<{ id: number; count: number }> {
+  const { results } = await env.DB.prepare('SELECT collection, data FROM entities WHERE deleted = 0').all();
+  const rows = (results ?? []) as { collection: string; data: string }[];
+  const out: Record<string, unknown[]> = { seasons: [], runners: [], practices: [], races: [] };
+  for (const r of rows) {
+    if (!(r.collection in out)) continue;
+    try {
+      out[r.collection].push(JSON.parse(r.data));
+    } catch {
+      /* skip corrupt row */
+    }
+  }
+  const snapshot = { version: 1, currentSeasonId: null, ...out };
+  const now = Date.now();
+  const res = await env.DB.prepare('INSERT INTO backups (created_at, kind, entity_count, data) VALUES (?, ?, ?, ?)')
+    .bind(now, kind, rows.length, JSON.stringify(snapshot))
+    .run();
+  // Keep 30 days of nightlies plus the 10 most recent manual ones.
+  await env.DB.prepare("DELETE FROM backups WHERE kind = 'nightly' AND created_at < ?").bind(now - 30 * 86400000).run();
+  await env.DB.prepare(
+    "DELETE FROM backups WHERE kind = 'manual' AND id NOT IN (SELECT id FROM backups WHERE kind = 'manual' ORDER BY created_at DESC LIMIT 10)",
+  ).run();
+  return { id: Number(res.meta.last_row_id), count: rows.length };
 }
 
 function validId(s: unknown): s is string {
@@ -96,6 +126,40 @@ export default {
       return json({ now, applied: stmts.length });
     }
 
+    if (url.pathname === '/api/backups' || url.pathname.startsWith('/api/backups/')) {
+      if (!(await keyIsValid(env, request.headers.get('x-coach-key') ?? url.searchParams.get('key')))) {
+        return json({ error: 'Coach passcode required' }, 401);
+      }
+      if (url.pathname === '/api/backups' && request.method === 'GET') {
+        const { results } = await env.DB.prepare(
+          'SELECT id, created_at, kind, entity_count FROM backups ORDER BY created_at DESC LIMIT 60',
+        ).all();
+        return json({ backups: results ?? [] });
+      }
+      if (url.pathname === '/api/backups' && request.method === 'POST') {
+        return json(await takeSnapshot(env, 'manual'));
+      }
+      const id = Number(url.pathname.slice('/api/backups/'.length));
+      if (request.method === 'GET' && Number.isInteger(id)) {
+        const row = (await env.DB.prepare('SELECT created_at, data FROM backups WHERE id = ?').bind(id).first()) as
+          | { created_at: number; data: string }
+          | null;
+        if (!row) return json({ error: 'Not found' }, 404);
+        const day = new Date(row.created_at).toISOString().slice(0, 10);
+        return new Response(row.data, {
+          headers: {
+            'content-type': 'application/json',
+            'content-disposition': `attachment; filename="xc-backup-${day}.json"`,
+            'cache-control': 'no-store',
+          },
+        });
+      }
+    }
+
     return json({ error: 'Not found' }, 404);
+  },
+
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    await takeSnapshot(env, 'nightly');
   },
 } satisfies ExportedHandler<Env>;

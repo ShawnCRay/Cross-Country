@@ -4,7 +4,7 @@ import { runnerFullName, sortRunners, useStore } from '../store';
 import type { Team } from '../types';
 import { TEAMS, teamLabel } from '../lib/labels';
 import { runnerRacePBs, runnerRaceSBs, seasonRaceDistanceLabel } from '../lib/stats';
-import { formatMs } from '../lib/time';
+import { formatResult } from '../lib/time';
 
 export function Runners() {
   const store = useStore();
@@ -107,8 +107,8 @@ export function Runners() {
                       {r.grade ? ` · Grade ${r.grade}` : ''}
                     </div>
                   </td>
-                  <td className="mono">{sb ? formatMs(sb.result.timeMs) : '--'}</td>
-                  <td className="mono">{pb ? formatMs(pb.result.timeMs) : '--'}</td>
+                  <td className="mono">{sb ? formatResult(sb.result.timeMs) : '--'}</td>
+                  <td className="mono">{pb ? formatResult(pb.result.timeMs) : '--'}</td>
                   <td>{races}</td>
                 </tr>
               );

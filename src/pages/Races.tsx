@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
-import { DISTANCE_PRESETS, distanceLabel, formatDate, formatMs, relativeDay, todayIso } from '../lib/time';
+import { DISTANCE_PRESETS, distanceLabel, formatDate, formatResult, relativeDay, todayIso } from '../lib/time';
 import { sortedResults } from '../lib/stats';
 
 export function Races() {
@@ -135,7 +135,7 @@ export function Races() {
                         </td>
                         <td>{distanceLabel(r.distanceMiles)}</td>
                         <td>{r.results.length}</td>
-                        <td className="mono nowrap">{top ? `${formatMs(top.timeMs)} ${store.runnerById(top.runnerId)?.firstName ?? ''}` : '--'}</td>
+                        <td className="mono nowrap">{top ? `${formatResult(top.timeMs)} ${store.runnerById(top.runnerId)?.firstName ?? ''}` : '--'}</td>
                       </tr>
                     );
                   })}
