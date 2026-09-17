@@ -185,3 +185,64 @@ export function seasonAttendance(data: AppData, runnerId: Id, seasonId: Id): { a
   }
   return { attended, held };
 }
+
+export interface CheckpointRow {
+  runnerId: Id;
+  label: string;
+  splitMs: number;
+  finishMs: number;
+  /** Time from the checkpoint to the line. */
+  closingMs: number;
+  /** Share of the total race time spent before the checkpoint (0-1). */
+  splitShare: number;
+  checkpointPlace: number;
+  finishPlace: number;
+  /** Positive = gained places after the checkpoint. */
+  placesGained: number;
+}
+
+/** Coach view: for each checkpoint label in a race, rank runners at the checkpoint and at the finish. */
+export function raceCheckpointAnalysis(race: Race): Map<string, CheckpointRow[]> {
+  const out = new Map<string, CheckpointRow[]>();
+  const finished = sortedResults(race).filter((r) => r.runnerId);
+  const finishPlace = new Map(finished.map((r, i) => [r.runnerId as Id, i + 1]));
+  const labels = new Set<string>();
+  for (const r of finished) for (const sp of r.splits ?? []) labels.add(sp.label);
+  for (const label of labels) {
+    const rows = finished
+      .map((r) => {
+        const sp = r.splits?.find((x) => x.label === label);
+        if (!sp) return null;
+        return { runnerId: r.runnerId as Id, label, splitMs: sp.timeMs, finishMs: r.timeMs };
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .sort((a, b) => a.splitMs - b.splitMs);
+    out.set(
+      label,
+      rows.map((x, i) => {
+        const fp = finishPlace.get(x.runnerId) ?? i + 1;
+        return {
+          ...x,
+          closingMs: x.finishMs - x.splitMs,
+          splitShare: x.finishMs > 0 ? x.splitMs / x.finishMs : 0,
+          checkpointPlace: i + 1,
+          finishPlace: fp,
+          placesGained: i + 1 - fp,
+        };
+      }),
+    );
+  }
+  return out;
+}
+
+/** A runner's checkpoint rows across all races, newest first. */
+export function runnerCheckpointHistory(data: AppData, runnerId: Id): { race: Race; row: CheckpointRow }[] {
+  const out: { race: Race; row: CheckpointRow }[] = [];
+  for (const race of data.races) {
+    for (const rows of raceCheckpointAnalysis(race).values()) {
+      const row = rows.find((r) => r.runnerId === runnerId);
+      if (row) out.push({ race, row });
+    }
+  }
+  return out.sort((a, b) => b.race.date.localeCompare(a.race.date));
+}

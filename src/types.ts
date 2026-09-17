@@ -53,12 +53,20 @@ export interface Practice {
   entries: PracticeEntry[];
 }
 
+export interface Split {
+  /** Name of the spot on the course, e.g. "Halfway". Distance is arbitrary; splits never affect results. */
+  label: string;
+  timeMs: number;
+}
+
 export interface RaceResult {
   /** null means the finish was recorded but not yet assigned to a runner. */
   runnerId: Id | null;
   timeMs: number;
   /** Overall place in the meet, if known. */
   place?: number;
+  /** Coach checkpoint times taken mid-race. */
+  splits?: Split[];
 }
 
 export interface Race {
@@ -87,10 +95,20 @@ export interface Finish {
   elapsedMs: number;
 }
 
+export interface Checkpoint {
+  id: Id;
+  runnerId: Id;
+  label: string;
+  elapsedMs: number;
+}
+
 export interface StopwatchState {
   raceId: Id | null;
   startedAt: number | null;
   stoppedAt: number | null;
   rosterIds: Id[];
   finishes: Finish[];
+  checkpoints: Checkpoint[];
+  mode: 'finish' | 'checkpoint';
+  checkpointLabel: string;
 }

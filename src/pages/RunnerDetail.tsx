@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../store';
 import type { Team } from '../types';
-import { raceBadge, runnerPracticeHistory, runnerPracticePBs, runnerRaceHistory, runnerRacePBs, runnerRaceSBs, seasonAttendance, seasonMileage } from '../lib/stats';
+import { raceBadge, runnerCheckpointHistory, runnerPracticeHistory, runnerPracticePBs, runnerRaceHistory, runnerRacePBs, runnerRaceSBs, seasonAttendance, seasonMileage } from '../lib/stats';
 import { distanceLabel, fmtMiles, formatDate, formatPace, formatResult } from '../lib/time';
 import { LineChart } from '../components/LineChart';
 import { ConfirmButton } from '../components/ConfirmButton';
@@ -36,6 +36,10 @@ export function RunnerDetail() {
   const [chartDist, setChartDist] = useState<string | null>(null);
   const activeDist = chartDist ?? distances[0] ?? null;
 
+  const checkpointHistory = useMemo(
+    () => (runner && store.sync.canEdit ? runnerCheckpointHistory(store.data, runner.id) : []),
+    [store.data, runner, store.sync.canEdit],
+  );
   const timedMileHistory = practiceHistory.filter(
     (m) => m.practice.type === 'timed_distance' && m.entry.timeMs != null && distanceLabel(m.practice.distanceMiles) === '1 mi',
   );
@@ -231,6 +235,44 @@ export function RunnerDetail() {
           </table>
         )}
       </section>
+
+      {checkpointHistory.length > 0 && (
+        <section className="card coach-only">
+          <div className="row between">
+            <h2>Race pattern</h2>
+            <span className="badge">coach view</span>
+          </div>
+          <p className="muted small">
+            Where they were at the checkpoint versus where they finished. Consistently gaining places means a strong closer;
+            losing places means they go out fast.
+          </p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Race</th>
+                <th>Checkpoint</th>
+                <th>Finish</th>
+                <th>Places</th>
+              </tr>
+            </thead>
+            <tbody>
+              {checkpointHistory.map(({ race, row }) => (
+                <tr key={race.id + row.label}>
+                  <td>
+                    <Link to={`/races/${race.id}`}>{race.name}</Link>
+                    <div className="muted small">{formatDate(race.date, { month: 'short', day: 'numeric' })} · {row.label}</div>
+                  </td>
+                  <td className="mono nowrap">{formatResult(row.splitMs)} <span className="muted small">#{row.checkpointPlace}</span></td>
+                  <td className="mono nowrap">{formatResult(row.finishMs)} <span className="muted small">#{row.finishPlace}</span></td>
+                  <td className={row.placesGained > 0 ? 'good' : row.placesGained < 0 ? 'bad' : ''}>
+                    {row.placesGained > 0 ? `+${row.placesGained}` : row.placesGained}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <section className="card">
         <h2>Practice history</h2>

@@ -226,3 +226,12 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .chip.on { background: rgba(91, 192, 230, 0.15); border-color: var(--accent); color: var(--text); font-weight: 600; }
 .toast { position: sticky; top: 3.2rem; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; background: var(--bg-3); border: 1px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.9rem; font-weight: 600; }
 h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+
+.mode-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.checkpoint-label { width: 10rem; }
+.finish-grid.checkpoint-mode .finish-runner { border-style: dashed; }
+.finish-runner.checked { border-color: var(--accent); border-style: solid; background: rgba(91, 192, 230, 0.12); }
+.finish-cp { font-size: 0.75rem; color: var(--accent); margin-top: 0.15rem; }
+.coach-only { border-color: rgba(250, 204, 21, 0.35); }
+.good { color: var(--ok); font-weight: 600; }
+.bad { color: var(--danger); font-weight: 600; }
