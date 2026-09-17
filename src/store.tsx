@@ -1,7 +1,21 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { User } from 'firebase/auth';
 import type { AppData, Id, Practice, Race, Runner, Season } from './types';
 import { newId } from './lib/id';
 import { todayIso } from './lib/time';
+import {
+  collectionsOf,
+  emptyCollections,
+  isEditor,
+  isEmptyCollections,
+  onAuth,
+  pushDiff,
+  signIn,
+  signOut,
+  subscribeAll,
+  syncEnabled,
+  type Collections,
+} from './lib/sync';
 
 const STORAGE_KEY = 'xc-tracker-v1';
 
@@ -70,6 +84,16 @@ interface Store {
 
   importData: (raw: unknown) => void;
   resetData: () => void;
+
+  /** Sync / auth state. When sync is off, canEdit is always true. */
+  sync: {
+    enabled: boolean;
+    user: User | null;
+    canEdit: boolean;
+    ready: boolean;
+    signIn: () => Promise<void>;
+    signOut: () => Promise<void>;
+  };
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -85,6 +109,10 @@ export function sortRunners(rs: Runner[]): Runner[] {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>(load);
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     try {
@@ -94,7 +122,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [data]);
 
-  const update = useCallback((fn: (d: AppData) => AppData) => setData((d) => fn(d)), []);
+  // ---- Sync ----
+  const [user, setUser] = useState<User | null>(null);
+  const [remoteReady, setRemoteReady] = useState(!syncEnabled);
+  const canEdit = !syncEnabled || isEditor(user);
+  const canEditRef = useRef(canEdit);
+  useEffect(() => {
+    canEditRef.current = canEdit;
+  }, [canEdit]);
+  /** Last state known to match the server; null means local data has never been pushed. */
+  const lastSynced = useRef<Collections | null>(null);
+
+  useEffect(() => {
+    if (!syncEnabled) return;
+    return onAuth(setUser);
+  }, []);
+
+  useEffect(() => {
+    if (!syncEnabled) return;
+    return subscribeAll((remote) => {
+      const local = collectionsOf(dataRef.current);
+      if (isEmptyCollections(remote) && !isEmptyCollections(local) && lastSynced.current == null) {
+        // Server is empty but this device has data (first device to sync): keep local, it will be pushed once signed in.
+        setRemoteReady(true);
+        return;
+      }
+      const merged = normalizeData({ ...dataRef.current, ...remote });
+      lastSynced.current = collectionsOf(merged);
+      setData(merged);
+      setRemoteReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!syncEnabled || !remoteReady || !canEdit) return;
+    const prev = lastSynced.current ?? emptyCollections;
+    const next = collectionsOf(data);
+    if (prev === next) return;
+    lastSynced.current = next;
+    pushDiff(prev, next).catch((e) => console.error('Sync push failed', e));
+  }, [data, remoteReady, canEdit]);
+
+  const update = useCallback((fn: (d: AppData) => AppData) => {
+    if (!canEditRef.current) return;
+    setData((d) => fn(d));
+  }, []);
 
   const store = useMemo<Store>(() => {
     const season = data.seasons.find((s) => s.id === data.currentSeasonId) ?? data.seasons[0];
@@ -177,10 +249,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       deleteRace: (id) => update((d) => ({ ...d, races: d.races.filter((r) => r.id !== id) })),
 
-      importData: (raw) => setData(normalizeData(raw)),
-      resetData: () => setData(emptyData()),
+      importData: (raw) => update(() => normalizeData(raw)),
+      resetData: () => update(() => emptyData()),
+
+      sync: { enabled: syncEnabled, user, canEdit, ready: remoteReady, signIn, signOut },
     };
-  }, [data, update]);
+  }, [data, update, user, canEdit, remoteReady]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

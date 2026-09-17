@@ -32,14 +32,46 @@ const NAV = [
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
+function SyncControls() {
+  const store = useStore();
+  const { enabled, user, canEdit } = store.sync;
+  if (!enabled) return null;
+  if (!user) {
+    return (
+      <button className="btn small" onClick={() => store.sync.signIn().catch((e) => alert(`Sign-in failed: ${(e as Error).message}`))}>
+        Coach sign in
+      </button>
+    );
+  }
+  return (
+    <span className="row gap">
+      <span className="muted small" title={user.email ?? ''}>{canEdit ? 'Coach' : 'Viewing'}</span>
+      <button className="btn small" onClick={() => store.sync.signOut()}>Sign out</button>
+    </span>
+  );
+}
+
 function Shell() {
+  const store = useStore();
+  const readOnly = !store.sync.canEdit;
   return (
     <div className="app">
       <header className="topbar">
         <NavLink to="/" className="brand">XC Tracker</NavLink>
-        <SeasonPicker />
+        <span className="row gap">
+          <SeasonPicker />
+          <SyncControls />
+        </span>
       </header>
+      {readOnly && (
+        <div className="readonly-banner">
+          {store.sync.user
+            ? 'This account can view but not edit. Ask the coach to add your email as an editor.'
+            : 'View only. Coaches: sign in to make changes.'}
+        </div>
+      )}
       <main>
+        <fieldset disabled={readOnly} className="page-fieldset">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/stopwatch" element={<Stopwatch />} />
@@ -51,6 +83,7 @@ function Shell() {
           <Route path="/races/:id" element={<RaceDetail />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
+        </fieldset>
       </main>
       <nav className="bottom-nav">
         {NAV.map((n) => (
