@@ -235,3 +235,8 @@ h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
 .coach-only { border-color: rgba(250, 204, 21, 0.35); }
 .good { color: var(--ok); font-weight: 600; }
 .bad { color: var(--danger); font-weight: 600; }
+
+.sw-clock.timeup { color: var(--warn); }
+.rep-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; }
+.rep-clock { font-size: 1.8rem; font-weight: 700; }
+.finish-runner:disabled { opacity: 0.55; }
