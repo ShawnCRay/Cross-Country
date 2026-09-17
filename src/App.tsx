@@ -1,6 +1,7 @@
 import { HashRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { StoreProvider, useStore } from './store';
 import { TEAM } from './lib/team';
+import { LakeMark } from './components/LakeMark';
 import { Dashboard } from './pages/Dashboard';
 import { Stopwatch } from './pages/Stopwatch';
 import { Runners } from './pages/Runners';
@@ -67,7 +68,7 @@ function Shell() {
   return (
     <div className="app">
       <header className="topbar">
-        <NavLink to="/" className="brand"><span className="brand-emoji" aria-hidden>{TEAM.emoji}</span> {TEAM.shortName}</NavLink>
+        <NavLink to="/" className="brand"><LakeMark className="brand-mark" /> {TEAM.shortName}</NavLink>
         <span className="row gap">
           <SeasonPicker />
           <SyncControls />
