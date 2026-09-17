@@ -1,8 +1,9 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../store';
 import { formatDate, todayIso } from '../lib/time';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { coachSignIn } from '../App';
+import { backupDownloadUrl, createBackup, listBackups, type BackupInfo } from '../lib/sync';
 
 export function Settings() {
   const store = useStore();
@@ -44,6 +45,19 @@ export function Settings() {
   };
 
   const seasons = [...store.data.seasons].sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+  const coachKey = store.sync.coachKey;
+  const [backups, setBackups] = useState<BackupInfo[] | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const loadBackups = useCallback(() => {
+    if (!coachKey) return;
+    listBackups(coachKey)
+      .then(setBackups)
+      .catch((e) => setMessage(`Could not load server backups: ${(e as Error).message}`));
+  }, [coachKey]);
+  useEffect(() => {
+    if (store.sync.mode === 'on' && coachKey) loadBackups();
+  }, [store.sync.mode, coachKey, loadBackups]);
 
   return (
     <div className="page">
@@ -135,6 +149,41 @@ export function Settings() {
           <button className="btn" onClick={() => fileRef.current?.click()}>⬆ Import backup</button>
           <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => e.target.files?.[0] && importJson(e.target.files[0])} />
         </div>
+        {store.sync.mode === 'on' && coachKey && (
+          <>
+            <h3>Server snapshots</h3>
+            <p className="muted small">A snapshot of everything is taken automatically every night and kept for 30 days.</p>
+            <div className="row wrap gap">
+              <button
+                className="btn"
+                disabled={backupBusy}
+                onClick={() => {
+                  setBackupBusy(true);
+                  createBackup(coachKey)
+                    .then(() => loadBackups())
+                    .catch((e) => setMessage(`Snapshot failed: ${(e as Error).message}`))
+                    .finally(() => setBackupBusy(false));
+                }}
+              >
+                Take a snapshot now
+              </button>
+            </div>
+            {backups && backups.length > 0 && (
+              <ul className="list">
+                {backups.slice(0, 12).map((b) => (
+                  <li key={b.id} className="row between">
+                    <span>
+                      {new Date(b.created_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                      <span className="muted small"> · {b.kind} · {b.entity_count} records</span>
+                    </span>
+                    <a className="btn small" href={backupDownloadUrl(b.id, coachKey)} download>Download</a>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {backups && backups.length === 0 && <p className="muted small">No snapshots yet. The first nightly one runs tonight.</p>}
+          </>
+        )}
         {message && <p className="notes">{message}</p>}
       </section>
 

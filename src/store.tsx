@@ -99,6 +99,8 @@ interface Store {
     signIn: (key: string) => Promise<boolean>;
     signOut: () => void;
     refresh: () => Promise<void>;
+    /** The coach passcode on this device, for coach-only API calls. */
+    coachKey: string | null;
   };
 }
 
@@ -384,9 +386,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       importData: (raw) => update(() => normalizeData(raw)),
       resetData: () => update(() => emptyData()),
 
-      sync: { mode, canEdit, isCoach, status, lastError, signIn, signOut, refresh: pull },
+      sync: { mode, canEdit, isCoach, status, lastError, signIn, signOut, refresh: pull, coachKey },
     };
-  }, [data, update, mode, canEdit, isCoach, status, lastError, signIn, signOut, pull]);
+  }, [data, update, mode, canEdit, isCoach, status, lastError, signIn, signOut, pull, coachKey]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

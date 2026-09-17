@@ -180,3 +180,25 @@ function upsertInto<T extends { id: string }>(list: T[], item: T): T[] {
   copy[idx] = item;
   return copy;
 }
+
+export interface BackupInfo {
+  id: number;
+  created_at: number;
+  kind: 'nightly' | 'manual';
+  entity_count: number;
+}
+
+export async function listBackups(key: string): Promise<BackupInfo[]> {
+  const res = await fetch(api('api/backups'), { headers: { 'x-coach-key': key }, cache: 'no-store' });
+  if (!res.ok) throw new Error(`Could not list backups (${res.status})`);
+  return ((await res.json()) as { backups: BackupInfo[] }).backups;
+}
+
+export async function createBackup(key: string): Promise<void> {
+  const res = await fetch(api('api/backups'), { method: 'POST', headers: { 'x-coach-key': key } });
+  if (!res.ok) throw new Error(`Backup failed (${res.status})`);
+}
+
+export function backupDownloadUrl(id: number, key: string): string {
+  return api(`api/backups/${id}?key=${encodeURIComponent(key)}`);
+}

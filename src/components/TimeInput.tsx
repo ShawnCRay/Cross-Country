@@ -11,7 +11,7 @@ interface Props {
 
 /** Text field that accepts m:ss, m:ss.t, or h:mm:ss and commits on blur / Enter. */
 export function TimeInput({ valueMs, onChange, placeholder = '7:12 or 712', className = '', hundredths }: Props) {
-  const display = valueMs == null ? '' : formatMs(valueMs, hundredths ? { hundredths: true } : { tenths: valueMs % 1000 !== 0 });
+  const display = valueMs == null ? '' : formatMs(valueMs, hundredths ? { hundredths: true } : { tenths: true });
   const [text, setText] = useState(display);
   const [invalid, setInvalid] = useState(false);
   const [lastDisplay, setLastDisplay] = useState(display);

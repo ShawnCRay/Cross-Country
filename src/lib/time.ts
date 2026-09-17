@@ -13,6 +13,11 @@ export function formatMs(ms: number | null | undefined, opts: { hundredths?: boo
   return out;
 }
 
+/** Race and time-trial results are shown to the tenth. */
+export function formatResult(ms: number | null | undefined): string {
+  return formatMs(ms, { tenths: true });
+}
+
 /**
  * Parse a time into ms. Accepts "18:32", "18:32.4", "1:02:15", and stopwatch-style
  * digits with no colon where the last two digits are seconds: "712" -> 7:12,

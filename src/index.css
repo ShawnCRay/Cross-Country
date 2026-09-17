@@ -220,3 +220,9 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .sync-dot.ok { background: var(--ok); }
 .sync-dot.busy { background: var(--warn); }
 .sync-dot.bad { background: var(--danger); }
+
+.chip-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+.chip { background: var(--bg); border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 0.4rem 0.8rem; cursor: pointer; }
+.chip.on { background: rgba(91, 192, 230, 0.15); border-color: var(--accent); color: var(--text); font-weight: 600; }
+.toast { position: sticky; top: 3.2rem; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; background: var(--bg-3); border: 1px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.9rem; font-weight: 600; }
+h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }

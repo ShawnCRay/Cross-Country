@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { raceBadge, sortedResults } from '../lib/stats';
-import { distanceLabel, formatDate, formatMs, relativeDay, todayIso } from '../lib/time';
+import { distanceLabel, formatDate, formatResult, relativeDay, todayIso } from '../lib/time';
 import { practiceSummary, practiceTypeLabel } from '../lib/labels';
 import { isStopwatchActive } from '../lib/stopwatchStorage';
 import { TEAM } from '../lib/team';
@@ -83,7 +83,7 @@ export function Dashboard() {
                   <span className="muted"> · {race.name}</span>
                 </span>
                 <span className="mono">
-                  {formatMs(x.timeMs)} <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>
+                  {formatResult(x.timeMs)} <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>
                 </span>
               </li>
             ))}

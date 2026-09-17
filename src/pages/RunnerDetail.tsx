@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStore } from '../store';
 import type { Team } from '../types';
-import { raceBadge, runnerPracticeHistory, runnerPracticePBs, runnerRaceHistory, runnerRacePBs, runnerRaceSBs, seasonMileage } from '../lib/stats';
-import { distanceLabel, fmtMiles, formatDate, formatMs, formatPace } from '../lib/time';
+import { raceBadge, runnerPracticeHistory, runnerPracticePBs, runnerRaceHistory, runnerRacePBs, runnerRaceSBs, seasonAttendance, seasonMileage } from '../lib/stats';
+import { distanceLabel, fmtMiles, formatDate, formatPace, formatResult } from '../lib/time';
 import { LineChart } from '../components/LineChart';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { practiceTypeLabel, teamLabel } from '../lib/labels';
@@ -52,7 +52,7 @@ export function RunnerDetail() {
   const onRoster = runner.seasonIds.includes(store.season.id);
   const mileage = seasonMileage(store.data, runner.id, store.season.id);
   const seasonRaceCount = raceHistory.filter((m) => m.race.seasonId === store.season.id).length;
-  const seasonPracticeCount = practiceHistory.filter((m) => m.practice.seasonId === store.season.id).length;
+  const attendance = seasonAttendance(store.data, runner.id, store.season.id);
 
   return (
     <div className="page">
@@ -139,11 +139,11 @@ export function RunnerDetail() {
           return (
             <div className="stat" key={label}>
               <div className="stat-label">{label} PB</div>
-              <div className="stat-value mono">{formatMs(m.result.timeMs)}</div>
+              <div className="stat-value mono">{formatResult(m.result.timeMs)}</div>
               <div className="stat-sub">{m.race.name} · {formatDate(m.race.date, { month: 'short', day: 'numeric' })}</div>
               <div className="stat-divider" />
               <div className="stat-label">{label} SB · {store.season.name}</div>
-              <div className="stat-value mono small-value">{sb ? formatMs(sb.result.timeMs) : '--'}</div>
+              <div className="stat-value mono small-value">{sb ? formatResult(sb.result.timeMs) : '--'}</div>
               {sb && <div className="stat-sub">{sb.race.name} · {formatDate(sb.race.date, { month: 'short', day: 'numeric' })}</div>}
             </div>
           );
@@ -151,14 +151,14 @@ export function RunnerDetail() {
         {practicePBs.map((pb) => (
           <div className="stat" key={pb.key}>
             <div className="stat-label">{pb.label}</div>
-            <div className="stat-value mono">{pb.valueMs != null ? formatMs(pb.valueMs) : fmtMiles(pb.valueMiles)}</div>
+            <div className="stat-value mono">{pb.valueMs != null ? formatResult(pb.valueMs) : fmtMiles(pb.valueMiles)}</div>
             <div className="stat-sub">{formatDate(pb.practice.date, { month: 'short', day: 'numeric' })}</div>
           </div>
         ))}
         <div className="stat">
           <div className="stat-label">{store.season.name}</div>
-          <div className="stat-value text">{seasonRaceCount} races · {seasonPracticeCount} practices</div>
-          <div className="stat-sub">{fmtMiles(mileage)} logged</div>
+          <div className="stat-value text">{seasonRaceCount} races · {attendance.attended}/{attendance.held} practices</div>
+          <div className="stat-sub">{fmtMiles(mileage)} logged{attendance.held ? ` · ${Math.round((100 * attendance.attended) / attendance.held)}% attendance` : ''}</div>
         </div>
       </section>
 
@@ -178,7 +178,7 @@ export function RunnerDetail() {
             points={raceHistory
               .filter((m) => distanceLabel(m.race.distanceMiles) === activeDist)
               .map((m) => ({ date: m.race.date, value: m.result.timeMs, label: m.race.name }))}
-            formatValue={(v) => formatMs(v)}
+            formatValue={(v) => formatResult(v)}
           />
         </section>
       )}
@@ -188,7 +188,7 @@ export function RunnerDetail() {
           <h2>Timed mile progress</h2>
           <LineChart
             points={timedMileHistory.map((m) => ({ date: m.practice.date, value: m.entry.timeMs as number, label: m.practice.title }))}
-            formatValue={(v) => formatMs(v)}
+            formatValue={(v) => formatResult(v)}
           />
         </section>
       )}
@@ -218,7 +218,7 @@ export function RunnerDetail() {
                     <td><Link to={`/races/${m.race.id}`}>{m.race.name}</Link></td>
                     <td>{distanceLabel(m.race.distanceMiles)}</td>
                     <td className="mono">
-                      {formatMs(m.result.timeMs)} {badge && <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>}
+                      {formatResult(m.result.timeMs)} {badge && <span className={`badge ${badge === 'PB' ? 'pb' : 'sb'}`}>{badge}</span>}
                     </td>
                     <td className="mono">{formatPace(m.result.timeMs, m.race.distanceMiles)}</td>
                     <td className="nowrap" title="Place on the team, then overall place if entered">

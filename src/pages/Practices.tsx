@@ -142,6 +142,7 @@ export function Practices() {
               <th>Practice</th>
               <th>Type</th>
               <th>Workout</th>
+              <th>Present</th>
               <th>Results</th>
             </tr>
           </thead>
@@ -152,6 +153,7 @@ export function Practices() {
                 <td><Link to={`/practices/${p.id}`}>{p.title}</Link></td>
                 <td>{practiceTypeLabel(p.type)}</td>
                 <td>{practiceSummary(p)}</td>
+                <td>{new Set([...(p.attendeeIds ?? []), ...p.entries.map((e) => e.runnerId)]).size}</td>
                 <td>{p.entries.length}</td>
               </tr>
             ))}

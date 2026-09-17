@@ -29,16 +29,41 @@ export function Stopwatch() {
     return () => clearInterval(t);
   }, [running]);
 
-  // Keep the screen on while timing.
+  // Keep the screen on while timing. Re-request when the tab becomes visible again (locks drop on hide).
+  const [awake, setAwake] = useState<'on' | 'off' | 'unsupported'>(() => ('wakeLock' in navigator ? 'off' : 'unsupported'));
   useEffect(() => {
     if (!running) return;
-    let lock: { release: () => Promise<void> } | null = null;
-    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
-    nav.wakeLock?.request('screen').then((l) => (lock = l)).catch(() => undefined);
+    let lock: { release: () => Promise<void>; addEventListener?: (t: string, f: () => void) => void } | null = null;
+    const nav = navigator as Navigator & {
+      wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void>; addEventListener?: (t: string, f: () => void) => void }> };
+    };
+    if (!nav.wakeLock) return;
+    const acquire = () => {
+      if (document.visibilityState !== 'visible') return;
+      nav.wakeLock
+        ?.request('screen')
+        .then((l) => {
+          lock = l;
+          setAwake('on');
+          l.addEventListener?.('release', () => setAwake('off'));
+        })
+        .catch(() => setAwake('off'));
+    };
+    acquire();
+    document.addEventListener('visibilitychange', acquire);
     return () => {
+      document.removeEventListener('visibilitychange', acquire);
       lock?.release().catch(() => undefined);
     };
   }, [running]);
+
+  // Undo toast after each finish tap.
+  const [toast, setToast] = useState<{ id: Id; label: string } | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const elapsed = sw.startedAt == null ? 0 : (sw.stoppedAt ?? now) - sw.startedAt;
 
@@ -90,6 +115,7 @@ export function Stopwatch() {
     if (!running || sw.startedAt == null) return;
     const f: Finish = { id: newId(), runnerId, elapsedMs: Date.now() - sw.startedAt };
     setSw((s) => ({ ...s, finishes: [...s.finishes, f] }));
+    setToast({ id: f.id, label: `${runnerId ? store.runnerById(runnerId)?.firstName ?? 'Runner' : 'Unassigned'} · ${formatMs(f.elapsedMs, { tenths: true })}` });
     if (navigator.vibrate) navigator.vibrate(30);
   };
   const undoLast = () => setSw((s) => ({ ...s, finishes: s.finishes.slice(0, -1) }));
@@ -248,6 +274,11 @@ export function Stopwatch() {
         <div>
           <div className="muted small">{race ? `${race.name} · ${distanceLabel(race.distanceMiles)}` : 'Race was deleted'}</div>
           <div className={`sw-clock ${running ? 'running' : 'stopped'}`}>{formatMs(elapsed, { tenths: true })}</div>
+          {running && (
+            <div className="muted small">
+              {awake === 'on' ? '☀ Screen held awake' : 'Screen may sleep · clock keeps running'}
+            </div>
+          )}
         </div>
         <div className="sw-controls">
           {running ? (
@@ -258,6 +289,21 @@ export function Stopwatch() {
           <button className="btn" onClick={undoLast} disabled={sw.finishes.length === 0}>↶ Undo last</button>
         </div>
       </div>
+
+      {toast && (
+        <div className="toast" role="status">
+          <span>Recorded {toast.label}</span>
+          <button
+            className="btn small"
+            onClick={() => {
+              removeFinish(toast.id);
+              setToast(null);
+            }}
+          >
+            Undo
+          </button>
+        </div>
+      )}
 
       {running && (
         <>
