@@ -79,13 +79,14 @@ export function formatDate(iso: string, opts: Intl.DateTimeFormatOptions = { mon
 }
 
 export const DISTANCE_PRESETS: { label: string; miles: number }[] = [
+  { label: '1 mi', miles: 1 },
+  { label: '1.5 mi', miles: 1.5 },
+  { label: '2K', miles: 1.243 },
+  { label: '3K', miles: 1.864 },
+  { label: '2 mi', miles: 2 },
+  { label: '4K', miles: 2.485 },
   { label: '5K', miles: 3.107 },
   { label: '3 mi', miles: 3 },
-  { label: '4K', miles: 2.485 },
-  { label: '2 mi', miles: 2 },
-  { label: '3K', miles: 1.864 },
-  { label: '1.5 mi', miles: 1.5 },
-  { label: '1 mi', miles: 1 },
   { label: '800m', miles: 0.497 },
   { label: '400m', miles: 0.2485 },
 ];

@@ -131,3 +131,16 @@ export function seasonMileage(data: AppData, runnerId: Id, seasonId: Id): number
   }
   return miles;
 }
+
+/** The distance this season races most often, as a label like "1 mi". Falls back to 1 mi. */
+export function seasonRaceDistanceLabel(races: Race[]): string {
+  const counts = new Map<string, number>();
+  for (const r of races) {
+    const l = distanceLabel(r.distanceMiles);
+    counts.set(l, (counts.get(l) ?? 0) + 1);
+  }
+  let best = '1 mi';
+  let bestN = 0;
+  for (const [l, n] of counts) if (n > bestN) { best = l; bestN = n; }
+  return best;
+}

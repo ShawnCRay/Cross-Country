@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { runnerFullName, sortRunners, useStore } from '../store';
 import type { Team } from '../types';
 import { TEAMS, teamLabel } from '../lib/labels';
-import { runnerRacePBs } from '../lib/stats';
+import { runnerRacePBs, seasonRaceDistanceLabel } from '../lib/stats';
 import { formatMs } from '../lib/time';
 
 export function Runners() {
@@ -31,6 +31,7 @@ export function Runners() {
   };
 
   const roster = store.seasonRunners.filter((r) => filter === 'all' || r.team === filter);
+  const pbLabel = seasonRaceDistanceLabel(store.seasonRaces);
   const notOnRoster = sortRunners(store.data.runners.filter((r) => !r.seasonIds.includes(store.season.id)));
 
   return (
@@ -80,27 +81,29 @@ export function Runners() {
       {roster.length === 0 ? (
         <p className="muted">No runners yet. Add your roster above.</p>
       ) : (
-        <table className="table">
+        <table className="table roster">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Team</th>
-              <th>Grade</th>
-              <th>5K PB</th>
+              <th>Runner</th>
+              <th>{pbLabel} PB</th>
               <th>Races</th>
             </tr>
           </thead>
           <tbody>
             {roster.map((r) => {
               const pbs = runnerRacePBs(store.data, r.id);
-              const pb5k = pbs.get('5K');
+              const pb = pbs.get(pbLabel);
               const races = store.seasonRaces.filter((x) => x.results.some((res) => res.runnerId === r.id)).length;
               return (
                 <tr key={r.id}>
-                  <td><Link to={`/runners/${r.id}`}>{runnerFullName(r)}</Link></td>
-                  <td>{teamLabel(r.team)}</td>
-                  <td>{r.grade ?? ''}</td>
-                  <td className="mono">{pb5k ? formatMs(pb5k.result.timeMs) : '--'}</td>
+                  <td>
+                    <Link to={`/runners/${r.id}`} className="roster-name">{runnerFullName(r)}</Link>
+                    <div className="muted small">
+                      {teamLabel(r.team)}
+                      {r.grade ? ` · Grade ${r.grade}` : ''}
+                    </div>
+                  </td>
+                  <td className="mono">{pb ? formatMs(pb.result.timeMs) : '--'}</td>
                   <td>{races}</td>
                 </tr>
               );
