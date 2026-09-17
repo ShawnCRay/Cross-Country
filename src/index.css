@@ -37,6 +37,7 @@ p { margin: 0 0 0.75rem; }
   padding: 0.6rem 1rem; background: var(--bg-2); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 10;
 }
+.brand-emoji { font-size: 1.15em; }
 .brand { font-weight: 700; font-size: 1.1rem; color: var(--text); white-space: nowrap; }
 .topbar .row { min-width: 0; flex-wrap: nowrap; }
 .season-name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34vw; }
