@@ -71,7 +71,9 @@ export function Runners() {
       )}
 
       <div className="tabs">
-        {(['all', 'boys', 'girls', 'other'] as const).map((t) => (
+        {(['all', 'boys', 'girls', 'other'] as const)
+          .filter((t) => t !== 'other' || store.seasonRunners.some((r) => r.team === 'other'))
+          .map((t) => (
           <button key={t} className={`tab ${filter === t ? 'active' : ''}`} onClick={() => setFilter(t)}>
             {t === 'all' ? `All (${store.seasonRunners.length})` : `${teamLabel(t)} (${store.seasonRunners.filter((r) => r.team === t).length})`}
           </button>

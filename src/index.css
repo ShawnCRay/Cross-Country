@@ -135,9 +135,9 @@ input[type='date']::-webkit-date-and-time-value { text-align: left; }
 
 .tabs { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 @media (max-width: 600px) {
-  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -1rem; padding: 0 1rem; }
+  .tabs { flex-wrap: wrap; }
   .tabs::-webkit-scrollbar { display: none; }
-  .tab { flex: 0 0 auto; }
+  .tab { padding: 0.3rem 0.65rem; font-size: 0.95rem; }
 }
 .tab { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 999px; padding: 0.35rem 0.8rem; cursor: pointer; }
 .tab.active { background: var(--bg-3); color: var(--text); border-color: var(--accent); }
