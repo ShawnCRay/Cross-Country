@@ -6,5 +6,4 @@ export const TEAM = {
   shortName: 'Dragons XC',
   /** Full name for page titles and the home page. */
   fullName: 'Cappy Culver Dragons Cross Country',
-  emoji: '🐉',
 };

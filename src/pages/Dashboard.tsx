@@ -5,6 +5,7 @@ import { distanceLabel, formatDate, formatMs } from '../lib/time';
 import { practiceSummary, practiceTypeLabel } from '../lib/labels';
 import { isStopwatchActive } from '../lib/stopwatchStorage';
 import { TEAM } from '../lib/team';
+import { LakeMark } from '../components/LakeMark';
 
 export function Dashboard() {
   const store = useStore();
@@ -23,9 +24,12 @@ export function Dashboard() {
 
   return (
     <div className="page">
-      <div>
-        <h1>{store.season.name}</h1>
-        <p className="muted">{TEAM.fullName}</p>
+      <div className="hero">
+        <LakeMark className="hero-mark" />
+        <div>
+          <h1>{store.season.name}</h1>
+          <p className="muted">{TEAM.fullName}</p>
+        </div>
       </div>
 
       {swActive && (
