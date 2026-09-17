@@ -13,10 +13,27 @@ export function formatMs(ms: number | null | undefined, opts: { hundredths?: boo
   return out;
 }
 
-/** Parse "18:32", "18:32.4", "1:02:15", or "95" (seconds) into ms. Returns null if invalid. */
+/**
+ * Parse a time into ms. Accepts "18:32", "18:32.4", "1:02:15", and stopwatch-style
+ * digits with no colon where the last two digits are seconds: "712" -> 7:12,
+ * "1852" -> 18:52, "10215" -> 1:02:15, "45" -> 0:45. Returns null if invalid.
+ */
 export function parseTime(input: string): number | null {
   const t = input.trim();
   if (!t) return null;
+  if (!t.includes(':')) {
+    const m = /^(\d+)(\.\d+)?$/.exec(t);
+    if (!m) return null;
+    const digits = m[1];
+    const frac = m[2] ?? '';
+    if (digits.length <= 2) return Math.round(parseFloat(digits + frac) * 1000);
+    const sec = parseFloat(digits.slice(-2) + frac);
+    const rest = digits.slice(0, -2);
+    const min = parseInt(rest.slice(-2), 10);
+    const hr = rest.length > 2 ? parseInt(rest.slice(0, -2), 10) : 0;
+    if (sec >= 60 || min >= 60) return null;
+    return Math.round((hr * 3600 + min * 60 + sec) * 1000);
+  }
   const parts = t.split(':');
   if (parts.length > 3) return null;
   const secPart = parts.pop() as string;
