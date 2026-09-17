@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy
 
 on:
   push:
@@ -11,30 +11,52 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  build:
+  # The real site lives on Cloudflare (Worker + D1). This job runs when the repo has the
+  # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets; otherwise deploy with `npx wrangler deploy`.
+  cloudflare:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - id: creds
+        run: echo "has=${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}" >> "$GITHUB_OUTPUT"
+      - if: steps.creds.outputs.has == 'true'
+        uses: actions/checkout@v4
+      - if: steps.creds.outputs.has == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+      - if: steps.creds.outputs.has == 'true'
+        run: npm ci
+      - if: steps.creds.outputs.has == 'true'
+        run: npm run build
+      - if: steps.creds.outputs.has == 'true'
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - if: steps.creds.outputs.has != 'true'
+        run: echo "Cloudflare secrets not set; skipping. Deploy manually with 'npx wrangler deploy'."
 
-  deploy:
-    needs: build
+  # The old GitHub Pages address now just forwards to the Cloudflare site.
+  pages-redirect:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - run: |
+          mkdir -p out
+          cat > out/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><title>XC Tracker</title>
+          <meta http-equiv="refresh" content="0; url=https://xc-tracker.shawn-7b3.workers.dev/">
+          <p>XC Tracker has moved to <a href="https://xc-tracker.shawn-7b3.workers.dev/">xc-tracker.shawn-7b3.workers.dev</a>.</p>
+          HTML
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
       - id: deployment
         uses: actions/deploy-pages@v4

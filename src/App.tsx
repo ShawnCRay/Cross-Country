@@ -34,21 +34,30 @@ const NAV = [
 
 function SyncControls() {
   const store = useStore();
-  const { enabled, user, canEdit } = store.sync;
-  if (!enabled) return null;
-  if (!user) {
+  const { mode, isCoach, status } = store.sync;
+  if (mode !== 'on') return null;
+  if (!isCoach) {
     return (
-      <button className="btn small" onClick={() => store.sync.signIn().catch((e) => alert(`Sign-in failed: ${(e as Error).message}`))}>
+      <button className="btn small" onClick={() => coachSignIn(store.sync.signIn)}>
         Coach sign in
       </button>
     );
   }
+  const dot = status === 'idle' ? 'ok' : status === 'syncing' ? 'busy' : 'bad';
   return (
     <span className="row gap">
-      <span className="muted small" title={user.email ?? ''}>{canEdit ? 'Coach' : 'Viewing'}</span>
+      <span className={`sync-dot ${dot}`} title={status === 'idle' ? 'Synced' : status} />
+      <span className="muted small">Coach</span>
       <button className="btn small" onClick={() => store.sync.signOut()}>Sign out</button>
     </span>
   );
+}
+
+export async function coachSignIn(signIn: (key: string) => Promise<boolean>) {
+  const key = window.prompt('Enter the coach passcode');
+  if (key == null || !key.trim()) return;
+  const ok = await signIn(key).catch(() => false);
+  if (!ok) window.alert('That passcode was not accepted.');
 }
 
 function Shell() {
@@ -63,11 +72,12 @@ function Shell() {
           <SyncControls />
         </span>
       </header>
-      {readOnly && (
+      {readOnly && store.sync.mode === 'on' && (
+        <div className="readonly-banner">View only. Coaches: sign in to make changes.</div>
+      )}
+      {store.sync.lastError && store.sync.isCoach && (
         <div className="readonly-banner">
-          {store.sync.user
-            ? 'This account can view but not edit. Ask the coach to add your email as an editor.'
-            : 'View only. Coaches: sign in to make changes.'}
+          {store.sync.status === 'offline' ? 'Offline. Changes are saved here and will sync when you reconnect.' : store.sync.lastError}
         </div>
       )}
       <main>

@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { useStore } from '../store';
 import { formatDate, todayIso } from '../lib/time';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { coachSignIn } from '../App';
 
 export function Settings() {
   const store = useStore();
@@ -95,31 +96,31 @@ export function Settings() {
 
       <section className="card">
         <h2>Sync &amp; sharing</h2>
-        {store.sync.enabled ? (
+        {store.sync.mode === 'on' ? (
           <>
             <p className="muted">
-              Sync is on. Data is shared across every device that opens this site. Anyone with the link can view;
-              only coach accounts can edit.
+              Sync is on. Every device that opens this site sees the same data. Anyone with the link can view; only
+              someone with the coach passcode can edit. Changes made offline are kept and sent when you reconnect.
             </p>
             <p>
-              {store.sync.user
-                ? `Signed in as ${store.sync.user.email ?? store.sync.user.displayName} (${store.sync.canEdit ? 'coach, can edit' : 'view only'})`
-                : 'Not signed in (view only).'}
+              {store.sync.isCoach ? 'Signed in as coach on this device.' : 'Not signed in (view only).'}
+              {store.sync.lastError && <span className="muted"> · {store.sync.lastError}</span>}
             </p>
             <div className="row wrap gap">
-              {store.sync.user ? (
+              {store.sync.isCoach ? (
                 <button className="btn" onClick={() => store.sync.signOut()}>Sign out</button>
               ) : (
-                <button className="btn primary" onClick={() => store.sync.signIn().catch((e) => alert(`Sign-in failed: ${(e as Error).message}`))}>
-                  Coach sign in
-                </button>
+                <button className="btn primary" onClick={() => coachSignIn(store.sync.signIn)}>Coach sign in</button>
               )}
+              <button className="btn" onClick={() => store.sync.refresh()}>Refresh now</button>
             </div>
           </>
+        ) : store.sync.mode === 'checking' ? (
+          <p className="muted">Checking for the sync service...</p>
         ) : (
           <p className="muted">
-            Sync is not set up, so data stays on this device only. See the README in the repo for how to turn on
-            cross-device sync and a read-only view for parents.
+            Sync service not reachable from this address, so data stays on this device only. Use the Cloudflare
+            deployment for shared data.
           </p>
         )}
       </section>
