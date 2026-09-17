@@ -1,19 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { User } from 'firebase/auth';
 import type { AppData, Id, Practice, Race, Runner, Season } from './types';
 import { newId } from './lib/id';
 import { todayIso } from './lib/time';
 import {
+  AuthError,
+  applyRows,
+  checkHealth,
   collectionsOf,
   emptyCollections,
-  isEditor,
-  isEmptyCollections,
-  onAuth,
-  pushDiff,
-  signIn,
-  signOut,
-  subscribeAll,
-  syncEnabled,
+  fetchChanges,
+  getCursor,
+  getKey,
+  loadSynced,
+  pushChanges,
+  saveSynced,
+  setCursor,
+  setKey,
+  verifyKey,
   type Collections,
 } from './lib/sync';
 
@@ -85,14 +88,17 @@ interface Store {
   importData: (raw: unknown) => void;
   resetData: () => void;
 
-  /** Sync / auth state. When sync is off, canEdit is always true. */
+  /** Sync state. mode 'off' means the API isn't available and data is local-only (always editable). */
   sync: {
-    enabled: boolean;
-    user: User | null;
+    mode: 'checking' | 'on' | 'off';
     canEdit: boolean;
-    ready: boolean;
-    signIn: () => Promise<void>;
-    signOut: () => Promise<void>;
+    isCoach: boolean;
+    status: 'idle' | 'syncing' | 'offline' | 'error';
+    lastError: string | null;
+    /** Verify a coach passcode and remember it on this device. Resolves false if rejected. */
+    signIn: (key: string) => Promise<boolean>;
+    signOut: () => void;
+    refresh: () => Promise<void>;
   };
 }
 
@@ -123,45 +129,168 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [data]);
 
   // ---- Sync ----
-  const [user, setUser] = useState<User | null>(null);
-  const [remoteReady, setRemoteReady] = useState(!syncEnabled);
-  const canEdit = !syncEnabled || isEditor(user);
+  const [mode, setMode] = useState<'checking' | 'on' | 'off'>('checking');
+  const [coachKey, setCoachKey] = useState<string | null>(getKey);
+  const [status, setStatus] = useState<'idle' | 'syncing' | 'offline' | 'error'>('idle');
+  const [lastError, setLastError] = useState<string | null>(null);
+  const isCoach = coachKey != null;
+  const canEdit = mode === 'off' || (mode === 'on' && isCoach);
   const canEditRef = useRef(canEdit);
   useEffect(() => {
     canEditRef.current = canEdit;
   }, [canEdit]);
-  /** Last state known to match the server; null means local data has never been pushed. */
-  const lastSynced = useRef<Collections | null>(null);
+  /** What we know the server holds. null = never synced from this device. */
+  const known = useRef<Collections | null>(loadSynced());
+  const pulling = useRef(false);
+  const pulledOnce = useRef(getCursor() > 0);
+  const pushRef = useRef<() => Promise<void>>(async () => undefined);
+  const pushing = useRef(false);
+  const pushQueued = useRef(false);
 
   useEffect(() => {
-    if (!syncEnabled) return;
-    return onAuth(setUser);
+    let cancelled = false;
+    checkHealth().then((ok) => {
+      if (cancelled) return;
+      // A device that has synced before stays in sync mode even without signal, so a coach can keep
+      // working at a meet; changes queue and send when the connection returns.
+      setMode(ok || getCursor() > 0 ? 'on' : 'off');
+      if (!ok && getCursor() > 0) setStatus('offline');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    if (!syncEnabled) return;
-    return subscribeAll((remote) => {
+  const pull = useCallback(async () => {
+    if (pulling.current) return;
+    pulling.current = true;
+    try {
+      const cursor = getCursor();
+      const { now, rows } = await fetchChanges(cursor);
       const local = collectionsOf(dataRef.current);
-      if (isEmptyCollections(remote) && !isEmptyCollections(local) && lastSynced.current == null) {
-        // Server is empty but this device has data (first device to sync): keep local, it will be pushed once signed in.
-        setRemoteReady(true);
+      const base = known.current ?? emptyCollections;
+      const applied = applyRows(local, base, rows);
+      let nextLocal = applied.local;
+      let currentSeasonId = dataRef.current.currentSeasonId;
+      if (base.seasons.length === 0 && applied.known.seasons.length > 0) {
+        // First time this device sees the server's seasons: drop the auto-created empty season so every device shares the server's seasons.
+        const knownIds = new Set(applied.known.seasons.map((x) => x.id));
+        const referenced = new Set<string>([
+          ...nextLocal.runners.flatMap((r) => r.seasonIds),
+          ...nextLocal.practices.map((p) => p.seasonId),
+          ...nextLocal.races.map((r) => r.seasonId),
+        ]);
+        nextLocal = { ...nextLocal, seasons: nextLocal.seasons.filter((x) => knownIds.has(x.id) || referenced.has(x.id)) };
+        const newest = [...applied.known.seasons].sort((a, b) => a.startDate.localeCompare(b.startDate)).at(-1);
+        if (newest && !nextLocal.seasons.some((x) => x.id === currentSeasonId)) currentSeasonId = newest.id;
+      }
+      known.current = applied.known;
+      saveSynced(applied.known);
+      setCursor(now);
+      pulledOnce.current = true;
+      if (JSON.stringify(nextLocal) !== JSON.stringify(local) || currentSeasonId !== dataRef.current.currentSeasonId) {
+        setData(normalizeData({ ...dataRef.current, ...nextLocal, currentSeasonId }));
+      }
+      setStatus('idle');
+      setLastError(null);
+      // Anything local that the server doesn't have yet goes up now.
+      pushRef.current();
+    } catch (e) {
+      setStatus(navigator.onLine ? 'error' : 'offline');
+      setLastError((e as Error).message);
+    } finally {
+      pulling.current = false;
+    }
+  }, []);
+
+  // Pull on start, when the tab regains focus, when back online, and every 20s while visible.
+  useEffect(() => {
+    if (mode !== 'on') return;
+    pull();
+    const onVisible = () => document.visibilityState === 'visible' && pull();
+    window.addEventListener('focus', pull);
+    window.addEventListener('online', pull);
+    document.addEventListener('visibilitychange', onVisible);
+    const t = setInterval(() => document.visibilityState === 'visible' && pull(), 20000);
+    return () => {
+      window.removeEventListener('focus', pull);
+      window.removeEventListener('online', pull);
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(t);
+    };
+  }, [mode, pull]);
+
+  // Push local changes whenever data differs from what the server holds.
+  const push = useCallback(async () => {
+    if (mode !== 'on' || !coachKey || !pulledOnce.current) return;
+    if (pushing.current) {
+      pushQueued.current = true;
+      return;
+    }
+    pushing.current = true;
+    try {
+      const snapshot = collectionsOf(dataRef.current);
+      const base = known.current ?? emptyCollections;
+      setStatus('syncing');
+      await pushChanges(coachKey, base, snapshot);
+      known.current = snapshot;
+      saveSynced(snapshot);
+      setStatus('idle');
+      setLastError(null);
+    } catch (e) {
+      if (e instanceof AuthError) {
+        setKey(null);
+        setCoachKey(null);
+        setLastError('Coach passcode was rejected. Sign in again.');
+        setStatus('error');
+      } else {
+        setStatus(navigator.onLine ? 'error' : 'offline');
+        setLastError((e as Error).message);
+        setTimeout(() => {
+          pushQueued.current = true;
+          pushing.current = false;
+          pushRef.current();
+        }, 10000);
         return;
       }
-      const merged = normalizeData({ ...dataRef.current, ...remote });
-      lastSynced.current = collectionsOf(merged);
-      setData(merged);
-      setRemoteReady(true);
-    });
-  }, []);
+    } finally {
+      pushing.current = false;
+    }
+    if (pushQueued.current) {
+      pushQueued.current = false;
+      pushRef.current();
+    }
+  }, [mode, coachKey]);
+  useEffect(() => {
+    pushRef.current = push;
+  }, [push]);
 
   useEffect(() => {
-    if (!syncEnabled || !remoteReady || !canEdit) return;
-    const prev = lastSynced.current ?? emptyCollections;
-    const next = collectionsOf(data);
-    if (prev === next) return;
-    lastSynced.current = next;
-    pushDiff(prev, next).catch((e) => console.error('Sync push failed', e));
-  }, [data, remoteReady, canEdit]);
+    if (mode !== 'on' || !coachKey) return;
+    // Defer so the push runs after render has settled.
+    const t = setTimeout(push, 0);
+    return () => clearTimeout(t);
+  }, [data, mode, coachKey, push]);
+
+  useEffect(() => {
+    if (mode !== 'on') return;
+    window.addEventListener('online', push);
+    return () => window.removeEventListener('online', push);
+  }, [mode, push]);
+
+  const signIn = useCallback(async (key: string) => {
+    const ok = await verifyKey(key.trim());
+    if (ok) {
+      setKey(key.trim());
+      setCoachKey(key.trim());
+      setLastError(null);
+    }
+    return ok;
+  }, []);
+  const signOut = useCallback(() => {
+    setKey(null);
+    setCoachKey(null);
+  }, []);
 
   const update = useCallback((fn: (d: AppData) => AppData) => {
     if (!canEditRef.current) return;
@@ -252,9 +381,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       importData: (raw) => update(() => normalizeData(raw)),
       resetData: () => update(() => emptyData()),
 
-      sync: { enabled: syncEnabled, user, canEdit, ready: remoteReady, signIn, signOut },
+      sync: { mode, canEdit, isCoach, status, lastError, signIn, signOut, refresh: pull },
     };
-  }, [data, update, user, canEdit, remoteReady]);
+  }, [data, update, mode, canEdit, isCoach, status, lastError, signIn, signOut, pull]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

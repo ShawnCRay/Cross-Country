@@ -28,24 +28,33 @@ The build uses a relative base path, so `dist/` can be dropped onto any static h
 
 ## Where the data lives
 
-Out of the box, data is stored in the browser on the device you use. Export a backup from Settings to move it. The backup file is plain JSON.
+The site is served by a Cloudflare Worker with a D1 (SQLite) database behind it:
 
-## Sync across devices and a read-only view for parents
+- **Live site:** https://xc-tracker.shawn-7b3.workers.dev/
+- Every device that opens it sees the same data. Anyone with the link can view.
+- Only someone who has entered the **coach passcode** on their device can edit. Tap "Coach sign in" in the header. The passcode is remembered on that device until you sign out.
+- Works offline once a device has synced: edits queue and send when the connection returns. The stopwatch never needs a connection.
+- Each browser also keeps a local copy, and Settings has a JSON export for backups.
 
-Turn on sync and the phone, the laptop, and everyone with the link see the same data. Coaches sign in with Google to edit; everyone else sees a read-only view. Writes queue while offline and send when signal returns.
+If the static build is hosted somewhere without the API (for example plain GitHub Pages), the app detects that and runs local-only.
 
-It uses Firebase (free tier is plenty for a team). One-time setup, about ten minutes:
+## Deploying
 
-1. Go to https://console.firebase.google.com, click **Add project**, name it, and finish (Analytics can be off).
-2. **Build → Firestore Database → Create database.** Pick a location, start in **production mode**.
-3. On the Firestore **Rules** tab, paste the contents of `firestore.rules` from this repo, replace `coach@example.com` with the coach's Google email (add more, comma separated, for assistant coaches), and click **Publish**.
-4. **Build → Authentication → Get started → Sign-in method → Google → Enable**, then Save.
-5. On the Authentication **Settings → Authorized domains** tab, add the domain the site is served from (for GitHub Pages that is `<your-username>.github.io`).
-6. **Project settings (gear icon) → Your apps → Web (</> icon)**, register the app, and copy the `firebaseConfig` object it shows.
-7. In `src/firebase-config.ts`, paste that object as `firebaseConfig` and put the same coach emails from step 3 in `editorEmails`. Commit and push.
+```bash
+npm run build
+npx wrangler deploy                 # needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
+```
 
-The web config is safe to commit; the Firestore rules are what control access. Once deployed, the first coach to sign in on a device that already has data pushes that data up, and every other device picks it up.
+Pushes to `main` also deploy automatically if the repo has `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets.
+
+Change or add coach passcodes (comma separated for more than one):
+
+```bash
+printf 'new-passcode' | npx wrangler secret put COACH_KEY
+```
+
+The database schema is in `worker/schema.sql`; apply it to a new database with `npx wrangler d1 execute xc-tracker --remote --file worker/schema.sql`.
 
 ## Tech
 
-Vite, React, TypeScript, react-router. No other runtime dependencies.
+Vite, React, TypeScript, react-router on the front end. Cloudflare Worker + D1 for the API, code in `worker/`.

@@ -174,3 +174,8 @@ input[type='checkbox'] { width: auto; }
 .chart-dot { fill: var(--bg-2); stroke: var(--accent); stroke-width: 2.5; }
 .chart-caption { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.9rem; }
 .chart-caption.good { color: var(--accent); }
+
+.sync-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.sync-dot.ok { background: var(--accent); }
+.sync-dot.busy { background: var(--warn); }
+.sync-dot.bad { background: var(--danger); }
