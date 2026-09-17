@@ -102,8 +102,18 @@ export interface Checkpoint {
   elapsedMs: number;
 }
 
+/** One interval rep for one runner, timed from that rep's start. */
+export interface Lap {
+  id: Id;
+  runnerId: Id;
+  rep: number;
+  elapsedMs: number;
+}
+
 export interface StopwatchState {
+  /** Exactly one of raceId / practiceId is set once started. */
   raceId: Id | null;
+  practiceId: Id | null;
   startedAt: number | null;
   stoppedAt: number | null;
   rosterIds: Id[];
@@ -111,4 +121,8 @@ export interface StopwatchState {
   checkpoints: Checkpoint[];
   mode: 'finish' | 'checkpoint';
   checkpointLabel: string;
+  /** Intervals: current rep number (1-based) and when it started. */
+  rep: number;
+  repStartedAt: number | null;
+  laps: Lap[];
 }

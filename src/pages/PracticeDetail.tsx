@@ -135,7 +135,12 @@ export function PracticeDetail() {
             {practiceTypeLabel(practice.type)} · {practiceSummary(practice)}
           </p>
         </div>
-        <button className="btn" onClick={() => setEditing((e) => !e)}>{editing ? 'Done' : 'Edit'}</button>
+        <div className="row gap">
+          {practice.type !== 'distance_run' && (
+            <Link to={`/stopwatch?practice=${practice.id}`} className="btn">⏱ Time this practice</Link>
+          )}
+          <button className="btn" onClick={() => setEditing((e) => !e)}>{editing ? 'Done' : 'Edit'}</button>
+        </div>
       </div>
 
       {editing && (
