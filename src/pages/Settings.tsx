@@ -80,7 +80,7 @@ export function Settings() {
             );
           })}
         </ul>
-        <form className="row wrap gap end" onSubmit={addSeason}>
+        <form className="form-row" onSubmit={addSeason}>
           <label className="field">
             <span>New season name</span>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`${new Date().getFullYear() + 1} Season`} />

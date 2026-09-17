@@ -47,7 +47,7 @@ function SyncControls() {
   return (
     <span className="row gap">
       <span className={`sync-dot ${dot}`} title={status === 'idle' ? 'Synced' : status} />
-      <span className="muted small">Coach</span>
+      <span className="muted small sync-label">Coach</span>
       <button className="btn small" onClick={() => store.sync.signOut()}>Sign out</button>
     </span>
   );
